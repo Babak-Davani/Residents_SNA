@@ -1,0 +1,69 @@
+# --- R / RStudio ---
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+
+# Keep your .Rproj file tracked (handy for collaborators)
+
+# --- Secrets / env ---
+.Renviron
+.env
+
+# --- renv (recommended for reproducible packages) ---
+renv/library/
+renv/staging/
+# keep these tracked:
+# renv/activate.R
+# renv.lock
+
+
+# --- R Markdown / knitr outputs & caches ---
+*_cache/
+cache/
+*_files/
+figure/
+figures/
+*.utf8.md
+*.knit.md
+*.Rmd.tmp
+
+
+
+# --- LaTeX / Pandoc build artifacts ---
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.bbl
+*.blg
+*.run.xml
+*.bcf
+*-blx.bib
+# Ignore .tex if you don't want pandoc intermediates
+*.tex
+
+# --- RStudio Connect ---
+rsconnect/
+
+# --- Data (adjust to your policy) ---
+# Ignore raw/sensitive data; keep a placeholder file so the folder exists
+data/
+!data/raw/.gitkeep
+
+# Optionally ignore large processed artifacts
+# data/processed/**
+# !data/processed/.gitkeep
+
+# --- Reports / exports ---
+# If you DON'T want knitted artifacts in git, keep these lines:
+*.html
+*.pdf
+*.docx
+*.pptx
+*.png
+*.jpg
+*.svg

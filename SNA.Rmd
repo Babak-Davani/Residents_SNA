@@ -1,0 +1,605 @@
+---
+title: "Social Network Analysis"
+author: "Babak Davani"
+date: "`r format(Sys.time(), '%Y-%m-%d')` "
+output:
+  rmdformats::material:
+    highlight: kate
+  html_document:
+    df_print: paged
+---
+
+```{r message=FALSE, include=FALSE}
+
+
+library(readxl)
+library(igraph)
+library(knitr)
+library(dplyr)
+library(ggplot2)
+library(vtable)
+# library(RColorBrewer)
+library(kableExtra)
+library(ggpubr)
+# library(data.table)
+# library(ggcorrplot)
+
+setwd("D:\\babak\\Google drive\\_R\\social network analysis_ Gamdomkar")
+
+```
+
+```{r echo=FALSE}
+#I used `read.csv()` to import the data. I created another csv to add the attributes for each node. 
+#Since, by default this function will turn character variables into factors, I used the `as.is` option to keep character variables as character.
+
+# 1. See the sheet names in the file
+sheet_names <- excel_sheets("data\\Feedback seeking-Akbari.xlsx")
+
+# 2. Read all sheets into a list of data frames
+all_sheets <- lapply(sheet_names, function(sheet) {
+  read_excel("data\\Feedback seeking-Akbari.xlsx", sheet = sheet)
+})
+
+names(all_sheets) <- sheet_names #name the list elements(dfs)
+```
+
+
+```{r}
+# chechkind the rows and columns to see if they are equal
+check_colnames_match_ids <- function(df, id_col = 1) {
+  stopifnot(ncol(df) >= 2)
+
+  ids  <- df[[id_col]]
+  cols <- names(df)[-id_col]
+  atrr_id <- all_sheets$Attr[["id"]]
+
+  # diagnostics
+  same_order <- identical(cols, ids)     # strict equality (order matters)
+  standard_id <- identical(atrr_id, ids)
+
+  dup_ids <- ids[duplicated(ids)]
+  na_ids  <- ids[is.na(ids) | ids == ""]
+
+  missing_in_cols <- setdiff(ids, cols)  # ids that don't have a matching column
+  extra_cols      <- setdiff(cols, ids)  # columns that don't have a matching id
+
+  list(
+    same_order = same_order,
+    standard_id = standard_id,
+    n_ids      = length(ids),
+    n_cols     = length(cols),
+    duplicated_ids = unique(dup_ids),
+    empty_or_na_ids = unique(na_ids),
+    missing_in_cols = sort(unique(missing_in_cols)),
+    extra_cols      = sort(unique(extra_cols))
+  )
+}
+
+# checking:
+res <- check_colnames_match_ids(all_sheets$`Procedural Skills`)
+res
+```
+```{r}
+# Preparing attributes DataFrame 
+net.attr <- all_sheets$Attr
+class(net.attr)
+
+# Transforming Gender from Numeric to factor 
+net.attr <- net.attr %>%
+  mutate(
+    Gender = case_when(
+      Gender == 2 ~ "Female",
+      Gender == 1 ~ "Male"
+    ),
+    Gender = factor(Gender, levels = c("Male", "Female"))
+  )
+
+# Transforming Level from Numeric to factor 
+net.attr <- net.attr %>%
+  mutate(
+    Level = case_when(
+      Level == 5 ~ "Supervisor",
+      Level == 3 ~ "PGY3",
+      Level == 1 ~ "PGY1"
+    ),
+    Level = factor(Level, levels = c("PGY1", "PGY3", "Supervisor"))
+  )
+```
+
+# **1) Procedural Skills network**  
+
+```{r echo=FALSE, results='asis'}
+# 1) Start from adjacency df
+adj_df <- all_sheets$`Procedural Skills`
+
+# 2) Make sure names match ids, then build a matrix
+
+id_check <- check_colnames_match_ids(adj_df)
+
+stopifnot(id_check$standard_id)
+
+A <- adj_df %>%
+  mutate(across(-1, as.numeric)) %>%         # ensure numeric
+  { mat <- as.matrix(.[-1]); rownames(mat) <- .$id; mat }
+
+ps_sna <- graph_from_adjacency_matrix(A, mode="directed", weighted=TRUE)
+
+n1=vcount(ps_sna)
+cat(paste("Number of nodes =", n1,"\n"))  
+    
+n2=ecount(ps_sna)
+cat(paste("Number of ties =", n2))
+#V(ps_sna)
+#E(ps_sna)
+```
+
+
+
+
+
+
+
+```{r echo=FALSE}
+##attributes to network elements
+
+# Level to color
+net.attr <- net.attr %>%
+  mutate(clr = case_when(
+    Level=="Supervisor" ~ "slateblue2",
+    Level=="PGY3" ~ "red",
+    Level=="PGY1" ~ "orange"
+    ))
+
+# Gender to shape
+net.attr <- net.attr %>% 
+  mutate(Shape = case_when(
+    Gender=="Female" ~ "circle",
+    Gender=="Male" ~ "square"
+    ))
+```
+
+```{r}
+# network atributes 
+
+V(ps_sna)$clr <- net.attr$clr
+V(ps_sna)$Level <- net.attr$Level
+V(ps_sna)$Gender <- net.attr$Gender
+V(ps_sna)$shape <- net.attr$Shape
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+# set network layout
+L <- layout_with_fr(ps_sna)
+
+# edge weight for network plot
+w <- E(ps_sna)$weight
+if (!is.null(w)) {
+  rng <- range(w, na.rm = TRUE)
+  E(ps_sna)$width <- if (diff(rng) == 0) 2 else 1 + 5 * (w - rng[1]) / diff(rng)
+}
+#plot
+plot(ps_sna,
+     layout = L,
+     vertex.color = V(ps_sna)$clr,
+     vertex.shape = V(ps_sna)$Shape,   # <-- was vertex.shapes
+     vertex.size = 15,
+     vertex.label = V(ps_sna)$label,   # show labels explicitly
+     vertex.label.cex = 0.65,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     main = "Figure 1: Procedural Skills Network Map",
+     margin = 0.1)
+
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("Supervisor", "PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("slateblue2", "red", "orange"),
+       pt.cex = 1.0, bty = "n")
+```
+
+### Centralization
+
+Centralization is a characteristics of the whole network (as opposed to the individual nodes). 
+
+```{r results='asis', echo = FALSE}
+n1 <- round(centr_degree(ps_sna)$centralization,4)
+cat(paste0("Degree centralization = ", n1,"\n")) 
+
+n1 <- round(centr_degree(ps_sna, mode="in")$centralization,4)
+cat(paste0("\n","Indegree centralization = ", n1,"\n")) 
+
+n1 <- round(centr_degree(ps_sna, mode="out")$centralization,4)
+cat(paste0("\n", "Outdegree centralization = ", n1,"\n")) 
+```
+
+### Density
+
+Density is also is a characteristics of the whole network, and defined as the ratio of the number of existing ties to the total number of possible ties (min=0, max=1)
+
+```{r echo=FALSE, results = 'asis'}
+
+n <- round(edge_density(ps_sna),4)
+cat(paste0("Density of the Procedural Skills Network = ", n))
+
+# The diameter of a graph is the length of the longest geodesic.
+# diameter(ps_sna, directed=T, weights = NA)
+```
+
+### Reciprocity
+
+Reciprocity is again a whole network measure, and shows the likelihood of nodes to be mutually linked.
+
+```{r echo=FALSE, results = 'asis'}
+
+n <- round(reciprocity(ps_sna),4)
+cat(paste0("Reciprocity of the the Procedural Skills Network = ", n))
+
+```
+
+### Clique
+
+Cliques are a way to define subgroups based on social cohesion. A clique is a maximally complete subgroup, that is, a subgroup with all possible ties. In other words, a clique is a maximal complete subgraph of a given graph — i.e., a group of people where everybody is connected directly to everyone else. The word “maximal” means that no other nodes can be added to the clique without making it less connected.
+
+```{r results='asis', echo=FALSE, warning=FALSE}
+
+n1=clique.number(ps_sna)
+cat(paste("Number of cliques = ", n1,"\n"))  
+
+#cliques(ps_sna, min=6)
+#maximal.cliques(ps_sna,min=6)
+#largest.cliques(ps_sna)
+```
+
+```{r}
+# coreness
+coreness <- coreness(ps_sna, mode = "in")  # coreness(ps_sna, mode = "all"/"in"/"out" if directed)
+table(coreness); max(coreness)
+
+
+# color by coreness with a palette (coreness often starts at 0)
+pal <- colorRampPalette(c("lightyellow","orange","red"))(max(coreness) + 1)
+V(ps_sna)$color <- pal[coreness + 1]
+
+# plot
+op <- par(mar = rep(0, 4))
+plot(ps_sna, vertex.label.cex = 0.5)  
+par(op)
+
+```
+
+
+
+### Clusters  
+```{r results='asis', echo=FALSE, warning=FALSE}
+
+n1=no.clusters(ps_sna)
+cat(paste0("Number of clusters = ", n1,"\n"))  
+
+
+```  
+
+### Centrality 
+
+Centrality measures are characteristics of individual nodes and help us identify the most important or central person in the network. Below, you can find the definition of some centrality measures:
+
+* Degree centrality: The number of ties a node has (sum of indegree and outdegree)  
+
+* Indegree centrality: The number of nominations by others  
+
+* Outdegree centrality: The number of nominating others  
+
+* Closeness centrality: The inverse of the peripherality (i.e., the sum of a node's distances to all other nodes). The more central a node is, the lower its total distance to all other nodes. This measure shows us how long it will take to spread information from a specific node to all other nodes. I considered "all" types of paths (to and from the nodes) to calculate closeness.  
+
+* Betweenness centrality: The number of times a node acts as a bridge along the shortest path between two other nodes. It shows us who has the control of the communication across the network.
+
+
+```{r echo=FALSE}
+df.prom <- data.frame(
+  Degree = degree(ps_sna),
+  Indegree = degree(ps_sna,mode="in"),
+  Outdegree = degree(ps_sna,mode="out"),
+  Closeness = round(closeness(ps_sna, mode="all", weights = NA),4),
+  Betweenness = round(betweenness(ps_sna, directed=T, weights=NA),4)
+)
+# net.attr$net1.degree <- degree(ps_sna)
+# net.attr$net1.indegree <- degree(ps_sna,mode="in")
+# net.attr$net1.outdegree <- degree(ps_sna,mode="out")
+# net.attr$net1.Closeness <- round(closeness(ps_sna, mode="all", weights = NA),4)
+# net.attr$net1.Betweenness = round(betweenness(ps_sna, directed=T, weights=NA),4)
+
+#Table
+kbl(df.prom, caption="Table 1.1: Centrality measures for each individual in the Procedural Skills network") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"), full_width = F, fixed_thead = T) %>%
+  column_spec(1, bold = T, border_right = T)
+
+
+#edge_betweenness = edge_betweenness(ps_sna, directed=T, weights=NA)
+```
+
+
+```{r echo=FALSE}
+###TABLE
+# kbl(df.prom, caption="Table 3: Centrality measures for each individual in the Procedural Skills network", digits=3) %>%
+#   kable_styling(bootstrap_options = c("striped", "hover"), full_width = F, fixed_thead = T) %>%
+#   column_spec(1, bold = T, border_right = T)%>%
+#   column_spec(6, color = "white",background = spec_color(df.prom$Closeness, end =0.9))
+Degree5 <- df.prom %>% 
+    arrange(desc(Degree)) %>% 
+    head(n=5)
+Indegree5 <- df.prom %>% 
+    arrange(desc(Indegree)) %>% 
+    head(n=5)
+Outdegree5 <- df.prom %>% 
+    arrange(desc(Outdegree)) %>% 
+    head(n=5)
+Closeness5 <- df.prom %>% 
+    arrange(desc(Closeness)) %>% 
+    head(n=5)
+Betweenness5 <- df.prom %>% 
+    arrange(desc(Betweenness)) %>% 
+    head(n=5)
+
+df.prom5 <- data.frame(
+  Degree = Degree5 %>% row.names(),
+  Indegree = Indegree5 %>% row.names(),
+  Outdegree = Outdegree5 %>% row.names(),
+  Closeness = Closeness5 %>% row.names(),
+  Betweenness = Betweenness5 %>% row.names()
+  )
+kbl(df.prom5, caption="Table 1.2: Top five central nodes in the Procedural Skills network", align = "c") %>%
+  kable_paper(bootstrap_options = c("striped", "hover"), full_width = F, fixed_thead = T, position = "center")
+```
+
+
+
+```{r include=FALSE}
+
+V(ps_sna)$degree <- degree(ps_sna)
+print(V(ps_sna)$degree)
+
+V(ps_sna)$degree.in <- degree(ps_sna, mode="in")
+print(V(ps_sna)$degree.in)
+
+V(ps_sna)$degree.out <- degree(ps_sna, mode="out")
+print(V(ps_sna)$degree.out)
+
+V(ps_sna)$closeness <- closeness(ps_sna)
+print(V(ps_sna)$closeness)
+
+V(ps_sna)$betweenness <- betweenness(ps_sna)
+print(V(ps_sna)$betweenness)
+```
+
+```{r eval=FALSE, include=FALSE}
+
+summary(degree(ps_sna))
+summary(degree(ps_sna, mode="in"))
+summary(degree(ps_sna, mode="out"))
+summary(closeness(ps_sna))
+summary(betweenness(ps_sna))
+
+```
+
+```{r echo=FALSE}
+
+#Distribution of centrality measures 
+
+op <- par(mar=c(2,2,7,0),mfrow=c(2,3))
+hist(V(ps_sna)$degree, col="royalblue3", main="Degree", xlim=c(0,25), ylim=c(0,25), axes=TRUE)
+hist(V(ps_sna)$degree.in, col="royalblue3", main="Indegree", xlim=c(0,25), ylim=c(0,25), axes=TRUE)
+hist(V(ps_sna)$degree.out, col="royalblue3", main="Outdegree", xlim=c(0,15), ylim=c(0,25), axes=TRUE)
+hist(V(ps_sna)$closeness, col="royalblue3", main="Closeness", xlim=c(0,0.005), ylim=c(0,25), axes=TRUE)
+hist(V(ps_sna)$betweenness, col="royalblue3", main="Betweenness", xlim=c(0,140), ylim=c(0,25), axes=TRUE)
+mtext("Figure 1.1: Distribution of centrality measures in the Procedural Skills network", side = 3, line =-2, outer = TRUE)
+par(op)
+
+```
+
+```{r echo=FALSE}
+net.attr$Degree <- V(ps_sna)$degree
+D <- ggplot(net.attr, aes(x=Level, y=Degree, fill=Level)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  scale_fill_brewer(palette="Blues")
+
+net.attr$Indegree <- V(ps_sna)$degree.in
+I <- ggplot(net.attr, aes(x=Level, y=Indegree, fill=Level)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  scale_fill_brewer(palette="Blues")
+
+
+net.attr$Outdegree <- V(ps_sna)$degree.out
+O <- ggplot(net.attr, aes(x=Level, y=Outdegree, fill=Level)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  scale_fill_brewer(palette="Blues")
+
+  
+thm <- theme(axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        panel.background = element_rect(fill = "white", colour = "grey"))
+expnd <- expand_limits(y=c(0,15))
+
+figure <- ggarrange(D+thm+expnd , I+thm+expnd  , O+thm+expnd ,
+                    ncol = 3,
+                    common.legend = TRUE, legend = "bottom")
+
+annotate_figure(figure, top = text_grob("Figure 1.2: Centrality measures based on the Levels in the Procedural Skills network"))
+
+
+```
+
+```{r echo=FALSE}
+
+D <- ggplot(net.attr, aes(x=Gender, y=Degree, fill=Gender)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  scale_fill_brewer(palette="Blues")
+
+I <- ggplot(net.attr, aes(x=Gender, y=Indegree, fill=Gender)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  scale_fill_brewer(palette="Blues")
+
+O <- ggplot(net.attr, aes(x=Gender, y=Outdegree, fill=Gender)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  scale_fill_brewer(palette="Blues")
+
+figure <- ggarrange(D+thm+expnd , I+thm+expnd  , O+thm+expnd ,
+                    ncol = 3,
+                    common.legend = TRUE, legend = "bottom")
+
+annotate_figure(figure, top = text_grob("Figure 1.3: Centrality measures based on the gender in the Procedural Skills network"))
+```
+```{r echo=FALSE}
+
+D <- ggplot(net.attr, aes(x=Level, y=Degree, fill=Gender)) +
+  geom_bar(stat = "summary", fun = "mean", position = "dodge") +
+  scale_fill_brewer(palette="Blues")
+
+I <- ggplot(net.attr, aes(x=Level, y=Indegree, fill=Gender)) +
+  geom_bar(stat = "summary", fun = "mean", position = "dodge") +
+  scale_fill_brewer(palette="Blues")
+
+O <- ggplot(net.attr, aes(x=Level, y=Outdegree, fill=Gender)) +
+  geom_bar(stat = "summary", fun = "mean", position = "dodge") +
+  scale_fill_brewer(palette="Blues")+
+  labs()
+
+figure <- ggarrange(D+expnd , I+expnd  , O+expnd ,
+                    ncol = 3,
+                    common.legend = TRUE, legend = "bottom")
+
+annotate_figure(figure, top = text_grob("Figure 1.4: Centrality measures based on both Levels and gender in the Procedural Skills network", size = 11))
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+plot(ps_sna,
+     vertex.color = "red",
+     vertext.size = 5,
+     vertex.label.cex = 0.7,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.4,
+     main="Figure 1.5: Procedural Skills Network: Basic Map",
+     layout = layout.fruchterman.reingold,
+     Layout = 1,
+     displaylabels=TRUE)
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+plot(ps_sna,
+     vertex.color = V(ps_sna)$clr,
+     vertex.shapes = V(ps_sna)$Shape,
+     vertex.size = 15,
+     vertex.label.cex = 0.65,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     main="Figure 1.6: Procedural Skills Network: Attribute-based Map",
+     layout = layout.fruchterman.reingold,
+      Layout = 1,
+     displaylabels=TRUE)
+legend(x=-0.8, y=-1.2, 
+       c("Male", "Female"), pch=c(0,1), col="black",
+       pt.bg=c("gray", "gray"), pt.cex=1.0, box.lty=0,  cex=0.5)
+legend(x=-1.5, y=-1.2, 
+       c("Supervisor", "PGY3","PGY2","PGY1"), pch=21, col="black", cex=0.5,
+       pt.bg=c("slateblue2", "green","red","orange"), pt.cex=1.0, box.lty=0)
+
+#tkid <- tkplot(ps_sna) 
+#l <- tkplot.getcoords(tkid) 
+#plot(ps_sna, layout=l)
+```
+
+```{r echo=FALSE, warning=FALSE}
+plot(ps_sna,
+     vertex.color = V(ps_sna)$clr,
+     vertex.size=(V(ps_sna)$degree)*0.9,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold,
+     Layout = 1,
+     main=list("Figure 1.7: Procedural Skills Network: Nodes' size adjusted based on Degrees",cex = 0.8),
+     displaylabels=TRUE)
+legend(x=-0.8, y=-1.2, 
+       c("Male", "Female"), pch=c(0,1), col="black",
+       pt.bg=c("gray", "gray"), pt.cex=1.0, box.lty=0,  cex=0.5)
+legend(x=-1.5, y=-1.2, 
+       c("Supervisor", "PGY3","PGY2","PGY1"), pch=21, col="black", cex=0.5,
+       pt.bg=c("slateblue2", "green","red","orange"), pt.cex=1.0, box.lty=0)
+
+
+plot(ps_sna,
+     vertex.color = V(ps_sna)$clr,
+     vertex.size=(V(ps_sna)$degree.in)*0.9,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold, 
+     Layout = 1,
+     main=list("Figure 1.8: Procedural Skills Network: Nodes' size adjusted based on Indegrees", cex=0.8),
+     displaylabels=TRUE)
+legend(x=-0.8, y=-1.2, 
+       c("Male", "Female"), pch=c(0,1), col="black",
+       pt.bg=c("gray", "gray"), pt.cex=1.0, box.lty=0,  cex=0.5)
+legend(x=-1.5, y=-1.2, 
+       c("Supervisor", "PGY3","PGY2","PGY1"), pch=21, col="black", cex=0.5,
+       pt.bg=c("slateblue2", "green","red","orange"), pt.cex=1.0, box.lty=0)
+
+
+plot(ps_sna,
+     vertex.color = V(ps_sna)$clr,
+     vertex.size=(V(ps_sna)$degree.out)*2,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold,
+     Layout = 1,
+     main=list("Figure 1.9: Procedural Skills Network: Nodes' size adjusted based on Outdegrees", cex=0.8),
+     displaylabels=TRUE)
+legend(x=-0.8, y=-1.2, 
+       c("Male", "Female"), pch=c(0,1), col="black",
+       pt.bg=c("gray", "gray"), pt.cex=1.0, box.lty=0,  cex=0.5)
+legend(x=-1.5, y=-1.2, 
+       c("Supervisor", "PGY3","PGY2","PGY1"), pch=21, col="black", cex=0.5,
+       pt.bg=c("slateblue2", "green","red","orange"), pt.cex=1.0, box.lty=0)
+```
+
+
+```{r echo=FALSE}
+
+cnet <- cluster_edge_betweenness(ps_sna)
+plot(cnet,
+     ps_sna,
+     vertex.size= log(V(ps_sna)$degree)*7,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     main=list("Figure 1.10: Procedural Skills Network - Communities (connection of densely connected groups)", cex=0.8),
+     layout = layout.fruchterman.reingold,
+     Layout = 1,
+     displaylabels=TRUE)
+
+
+```
