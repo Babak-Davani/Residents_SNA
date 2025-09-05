@@ -11,20 +11,23 @@ output:
   word_document: default
 ---
 
-```{r message=FALSE, include=FALSE}
+```{r setup, message=FALSE, include=FALSE}
 library(readxl)
 library(igraph)
+# library(sna)
 library(knitr)
 library(dplyr)
+library(Matrix)
 library(ggplot2)
 library(vtable)
 # library(RColorBrewer)
 library(kableExtra)
+library(gt)
 library(ggpubr)
 # library(data.table)
 # library(ggcorrplot)
 
-setwd("D:\\babak\\Google drive\\_R\\social network analysis_ Gamdomkar")
+setwd("D:\\babak\\Google drive\\_R\\Residents_SNA")
 # setwd("/Users/babak/Library/CloudStorage/GoogleDrive-mostafazade@gmail.com/My Drive/_R/social network analysis_ Gamdomkar")
 
 
@@ -169,7 +172,7 @@ res_idx <- !sup_idx   # residents
 ## 1) Peer network among residents only (R–R)
 A_RR <- A[res_idx, res_idx, drop = FALSE]
 
-g_peer <- graph_from_adjacency_matrix(
+g_peer_ps <- graph_from_adjacency_matrix(
   A_RR,
   mode    = "directed",
   weighted = TRUE,
@@ -183,10 +186,10 @@ g_peer <- graph_from_adjacency_matrix(
 ##  A) Procedural Skills network - Peer network
 ```{r echo=FALSE, results='asis'}
 ## Compute stats for Peer network
-n  <- vcount(g_peer)
-E  <- ecount(g_peer)                      
-d  <- edge_density(g_peer, loops = FALSE) # unweighted density
-w  <- E(g_peer)$weight
+n  <- vcount(g_peer_ps)
+E  <- ecount(g_peer_ps)                      
+d  <- edge_density(g_peer_ps, loops = FALSE) # unweighted density
+w  <- E(g_peer_ps)$weight
 Sw <- sum(w, na.rm = TRUE)                # total tie strength Σw
 Mw <- if (length(w)) median(w, na.rm = TRUE) else NA_real_
 
@@ -208,31 +211,31 @@ cat(sprintf(
 
 ```{r echo=FALSE}
 # Peer network attributes 
-idx <- match(V(g_peer)$name, net.attr$id)
-V(g_peer)$clr <- net.attr$clr[idx]
-V(g_peer)$Level <- net.attr$Level[idx]
-V(g_peer)$Gender <- net.attr$Gender[idx]
-V(g_peer)$shape <- net.attr$Shape[idx]
+idx <- match(V(g_peer_ps)$name, net.attr$id)
+V(g_peer_ps)$clr <- net.attr$clr[idx]
+V(g_peer_ps)$Level <- net.attr$Level[idx]
+V(g_peer_ps)$Gender <- net.attr$Gender[idx]
+V(g_peer_ps)$shape <- net.attr$Shape[idx]
 ```
 
 
-```{r echo=FALSE, warning=FALSE}
+```{r echo = FALSE, warning = FALSE, fig.width=10, fig.height=6, out.width='80%', fig.retina=1, fig.align='center'}
 #### set network layout
-# layout_with_graphopt(g_peer)
-L <- layout.fruchterman.reingold(g_peer)
+# layout_with_graphopt(g_peer_ps)
+L <- layout.fruchterman.reingold(g_peer_ps)
 # edge weight for network plot
-w <- E(g_peer)$weight
+w <- E(g_peer_ps)$weight
 if (!is.null(w)) {
   rng <- range(w, na.rm = TRUE)
-  E(g_peer)$width <- if (diff(rng) == 0) 2 else 1 + 3 * (w - rng[1]) / diff(rng)
+  E(g_peer_ps)$width <- if (diff(rng) == 0) 2 else 1 + 3 * (w - rng[1]) / diff(rng)
 }
 #plot
-plot(g_peer,
+plot(g_peer_ps,
      layout = L,
-     vertex.color = V(g_peer)$clr,
-     vertex.shape = V(g_peer)$Shape,   
+     vertex.color = V(g_peer_ps)$clr,
+     vertex.shape = V(g_peer_ps)$Shape,   
      vertex.size = 20,
-     vertex.label = V(g_peer)$label,   # show labels explicitly
+     vertex.label = V(g_peer_ps)$label,   # show labels explicitly
      vertex.label.cex = 0.65,
      vertex.label.dist = 0,
      vertex.label.color = "black",
@@ -278,10 +281,10 @@ $$
 
 
 ```{r echo=FALSE, results='asis'}
-dens <- round(edge_density(g_peer, loops = FALSE), 4)
+dens <- round(edge_density(g_peer_ps, loops = FALSE), 4)
 
-n      <- vcount(g_peer)
-sum_w  <- sum(E(g_peer)$weight, na.rm = TRUE)
+n      <- vcount(g_peer_ps)
+sum_w  <- sum(E(g_peer_ps)$weight, na.rm = TRUE)
 wd_avg <- sum_w / (n * (n - 1))   # directed: avg weight per possible arc
 
 cat(sprintf("Density of the Procedural Skills Peer Network = %.4f  \n", dens))
@@ -293,16 +296,16 @@ cat(sprintf("Weighted density (avg weight per possible arc) = %.3f  \n", wd_avg)
 Centralization is a characteristics of the whole network (as opposed to the individual nodes). 
 
 ```{r results='asis', echo = FALSE}
-n1 <- round(centr_degree(g_peer)$centralization,4)
+n1 <- round(centr_degree(g_peer_ps)$centralization,4)
 cat(paste0("Degree centralization = ", n1,"  \n")) 
 
-n1 <- round(centr_degree(g_peer, mode="in")$centralization,4)
+n1 <- round(centr_degree(g_peer_ps, mode="in")$centralization,4)
 cat(paste0("Indegree centralization = ", n1,"  \n")) 
 
-n1 <- round(centr_degree(g_peer, mode="out")$centralization,4)
+n1 <- round(centr_degree(g_peer_ps, mode="out")$centralization,4)
 cat(paste0("Outdegree centralization = ", n1,"  \n")) 
 
-n1 <- round(centr_betw(g_peer)$centralization,4)
+n1 <- round(centr_betw(g_peer_ps)$centralization,4)
 cat(paste0("Betweenness centralization = ", n1,"  \n")) 
 ```
 
@@ -340,11 +343,11 @@ star_strength_denom <- function(n, mode = c("all","out","in"), max_w) {
 }
 
 # ---- Weighted degree centralizations (use strengths)
-n <- vcount(g_peer)
+n <- vcount(g_peer_ps)
 
-s_all <- strength(g_peer, mode = "all", weights = E(g_peer)$weight)   # total strength
-s_in  <- strength(g_peer, mode = "in",  weights = E(g_peer)$weight)
-s_out <- strength(g_peer, mode = "out", weights = E(g_peer)$weight)
+s_all <- strength(g_peer_ps, mode = "all", weights = E(g_peer_ps)$weight)   # total strength
+s_in  <- strength(g_peer_ps, mode = "in",  weights = E(g_peer_ps)$weight)
+s_out <- strength(g_peer_ps, mode = "out", weights = E(g_peer_ps)$weight)
 
 den_all <- star_strength_denom(n, "all", max_w)
 den_in  <- star_strength_denom(n, "in",  max_w)
@@ -356,14 +359,14 @@ c_out <- centr_freeman(s_out, den_out)
 
 # ---- Weighted betweenness centralization
 # Treat weights as strengths => convert to distances for shortest paths
-w <- E(g_peer)$weight
+w <- E(g_peer_ps)$weight
 if (any(!is.finite(w)) || any(w <= 0, na.rm = TRUE)) {
   # guard: drop or replace nonpositive weights if they exist
   w[w <= 0 | !is.finite(w)] <- NA_real_
 }
-E(g_peer)$dist <- 1 / w
+E(g_peer_ps)$dist <- 1 / w
 
-b_w <- betweenness(g_peer, directed = TRUE, weights = E(g_peer)$dist, normalized = FALSE)
+b_w <- betweenness(g_peer_ps, directed = TRUE, weights = E(g_peer_ps)$dist, normalized = FALSE)
 
 # Denominator via star graph (max centralization shape). Use the larger of in/out stars.
 star_out <- make_star(n, mode = "out", center = 1)
@@ -417,12 +420,12 @@ Reciprocity is again a whole network measure, and shows the likelihood of nodes 
 
 ```{r echo=FALSE, results = 'asis'}
 
-n <- round(reciprocity(g_peer),4)
+n <- round(reciprocity(g_peer_ps),4)
 cat(paste0("Reciprocity of the the Procedural Skills Network = ", n,"  \n"))
 
 ## --- Weighted reciprocity (Garlaschelli–Loffredo style) --------------
 # r_w = sum_{i<j} min(w_ij, w_ji) / sum_{i≠j} w_ij   (∈ [0,1])
-W <- as.matrix(as_adjacency_matrix(g_peer, attr = "weight", sparse = FALSE))
+W <- as.matrix(as_adjacency_matrix(g_peer_ps, attr = "weight", sparse = FALSE))
 W[is.na(W)] <- 0
 diag(W) <- 0
 num <- sum(pmin(W, t(W))[upper.tri(W)])  # mutual weight (no double-count)
@@ -439,28 +442,28 @@ Cliques are a way to define subgroups based on social cohesion. A clique is a ma
 
 ```{r results='asis', echo=FALSE, warning=FALSE}
 
-n1=clique.number(g_peer)
+n1=clique.number(g_peer_ps)
 cat(paste("Number of cliques = ", n1,"  \n"))  
 
-#cliques(g_peer, min=6)
-#maximal.cliques(g_peer,min=6)
-#largest.cliques(g_peer)
+#cliques(g_peer_ps, min=6)
+#maximal.cliques(g_peer_ps,min=6)
+#largest.cliques(g_peer_ps)
 ```
 
 ```{r echo=FALSE}
 # ### k-cor
 # # coreness
-# coreness <- coreness(g_peer, mode = "in")  # coreness(g_peer, mode = "all"/"in"/"out" if directed)
+# coreness <- coreness(g_peer_ps, mode = "in")  # coreness(g_peer_ps, mode = "all"/"in"/"out" if directed)
 # table(coreness); max(coreness)
 # 
 # 
 # # color by coreness with a palette (coreness often starts at 0)
 # pal <- colorRampPalette(c("lightyellow","orange","red"))(max(coreness) + 1)
-# V(g_peer)$color <- pal[coreness + 1]
+# V(g_peer_ps)$color <- pal[coreness + 1]
 # 
 # # plot
 # op <- par(mar = rep(0, 4))
-# plot(g_peer, vertex.label.cex =0.7)  
+# plot(g_peer_ps, vertex.label.cex =0.7)  
 # par(op)
 
 ```
@@ -470,7 +473,7 @@ cat(paste("Number of cliques = ", n1,"  \n"))
 ### Clusters  
 ```{r results='asis', echo=FALSE, warning=FALSE}
 
-n1=no.clusters(g_peer)
+n1=no.clusters(g_peer_ps)
 cat(paste0("Number of clusters = ", n1,"  \n"))  
 
 
@@ -496,11 +499,11 @@ cat(paste0("Number of clusters = ", n1,"  \n"))
 
 ```{r echo=FALSE}
 df.prom <- data.frame(
-  Degree = degree(g_peer),
-  Indegree = degree(g_peer,mode="in"),
-  Outdegree = degree(g_peer,mode="out"),
-  Closeness = round(closeness(g_peer, mode="all", weights = NA),4),
-  Betweenness = round(betweenness(g_peer, directed=T, weights=NA),4)
+  Degree = degree(g_peer_ps),
+  Indegree = degree(g_peer_ps,mode="in"),
+  Outdegree = degree(g_peer_ps,mode="out"),
+  Closeness = round(closeness(g_peer_ps, mode="all", weights = NA),4),
+  Betweenness = round(betweenness(g_peer_ps, directed=T, weights=NA),4)
 )
 
 #Table
@@ -509,7 +512,7 @@ kbl(df.prom, caption="Table 1.1: Centrality measures for each resident in the Pr
   column_spec(1, bold = T, border_right = T)
 
 
-#edge_betweenness = edge_betweenness(g_peer, directed=T, weights=NA)
+#edge_betweenness = edge_betweenness(g_peer_ps, directed=T, weights=NA)
 ```
 
 ```{r echo=FALSE}
@@ -545,11 +548,11 @@ kbl(df.prom5, caption="Table 1.2: Top three central nodes in the Procedural Skil
 
 ```{r echo=FALSE}
 df.prom <- data.frame(
-  Degree = strength(g_peer, mode = "all",  weights = E(g_peer)$weight),
-  Indegree = strength(g_peer, mode = "in",  weights = E(g_peer)$weight),
-  Outdegree = strength(g_peer, mode = "out",  weights = E(g_peer)$weight),
-  Closeness = round(closeness(g_peer, mode="all", weights = E(g_peer)$weight),4),
-  Betweenness = round(betweenness(g_peer, directed=T, weights=E(g_peer)$weight),4)
+  Degree = strength(g_peer_ps, mode = "all",  weights = E(g_peer_ps)$weight),
+  Indegree = strength(g_peer_ps, mode = "in",  weights = E(g_peer_ps)$weight),
+  Outdegree = strength(g_peer_ps, mode = "out",  weights = E(g_peer_ps)$weight),
+  Closeness = round(closeness(g_peer_ps, mode="all", weights = E(g_peer_ps)$weight),4),
+  Betweenness = round(betweenness(g_peer_ps, directed=T, weights=E(g_peer_ps)$weight),4)
 )
 
 
@@ -559,7 +562,7 @@ kbl(df.prom, caption="Table 1.3: Weighted Centrality measures for each resident 
   column_spec(1, bold = T, border_right = T)
 
 
-#edge_betweenness = edge_betweenness(g_peer, directed=T, weights=NA)
+#edge_betweenness = edge_betweenness(g_peer_ps, directed=T, weights=NA)
 ```
 
 ```{r echo=FALSE}
@@ -596,36 +599,78 @@ kbl(df.prom5, caption="Table 1.4: Top three central nodes in the Procedural Skil
 
 ```{r echo=FALSE}
 
-V(g_peer)$degree <- degree(g_peer)
+V(g_peer_ps)$degree <- degree(g_peer_ps)
 
-V(g_peer)$degree.in <- degree(g_peer, mode="in")
+V(g_peer_ps)$degree.in <- degree(g_peer_ps, mode="in")
 
-V(g_peer)$degree.out <- degree(g_peer, mode="out")
+V(g_peer_ps)$degree.out <- degree(g_peer_ps, mode="out")
 
-V(g_peer)$closeness <- closeness(g_peer)
+V(g_peer_ps)$closeness <- closeness(g_peer_ps)
 
-V(g_peer)$betweenness <- betweenness(g_peer)
+V(g_peer_ps)$betweenness <- betweenness(g_peer_ps)
 
 
 ## --- Weighted in/out degree (a.k.a. strength) ------------------------
-V(g_peer)$w_degree  <- strength(g_peer, mode = "all",  weights = E(g_peer)$weight)
-V(g_peer)$w_in  <- strength(g_peer, mode = "in",  weights = E(g_peer)$weight)
-V(g_peer)$w_out <- strength(g_peer, mode = "out", weights = E(g_peer)$weight)
-V(g_peer)$w_close <- round(closeness(g_peer, mode="all", weights = E(g_peer)$weight),4)
-V(g_peer)$w_btw <- round(betweenness(g_peer, directed=T, weights=E(g_peer)$weight),4)
+V(g_peer_ps)$w_degree  <- strength(g_peer_ps, mode = "all",  weights = E(g_peer_ps)$weight)
+V(g_peer_ps)$w_in  <- strength(g_peer_ps, mode = "in",  weights = E(g_peer_ps)$weight)
+V(g_peer_ps)$w_out <- strength(g_peer_ps, mode = "out", weights = E(g_peer_ps)$weight)
+V(g_peer_ps)$w_close <- round(closeness(g_peer_ps, mode="all", weights = E(g_peer_ps)$weight),4)
+V(g_peer_ps)$w_btw <- round(betweenness(g_peer_ps, directed=T, weights=E(g_peer_ps)$weight),4)
 
 
 ## _____________ vertex attributes
-# vertex_attr_names(g_peer)
+# vertex_attr_names(g_peer_ps)
 ```
 
-```{r eval=FALSE, include=FALSE}
+```{r Table 1.5, echo=FALSE}
 
-summary(degree(g_peer))
-summary(degree(g_peer, mode="in"))
-summary(degree(g_peer, mode="out"))
-summary(closeness(g_peer))
-summary(betweenness(g_peer))
+# Helper to compute a robust numeric summary (handles NAs)
+summarize_vec <- function(x) {
+  c(
+    "Min."     = min(x, na.rm = TRUE),
+    "1st Qu."  = as.numeric(quantile(x, 0.25, na.rm = TRUE, names = FALSE)),
+    "Median"   = median(x, na.rm = TRUE),
+    "Mean"     = mean(x, na.rm = TRUE),
+    "3rd Qu."  = as.numeric(quantile(x, 0.75, na.rm = TRUE, names = FALSE)),
+    "Max."     = max(x, na.rm = TRUE)
+  )
+}
+
+# Compute the five centralities
+metrics <- list(
+  "Degree"      = degree(g_peer_ps),
+  "In-degree"   = degree(g_peer_ps, mode = "in"),
+  "Out-degree"  = degree(g_peer_ps, mode = "out"),
+  "Closeness"   = closeness(g_peer_ps),
+  "Betweenness" = betweenness(g_peer_ps)
+)
+
+# Build a tidy summary table
+df <- sapply(metrics, summarize_vec) |> 
+  as.data.frame() |> 
+  tibble::rownames_to_column("Statistic")
+
+# Display with gt
+# df |>
+#   gt() |>
+#   tab_header(title = md("**Centrality summaries (unweighted)**")) |>
+#   fmt_number(columns = -Statistic, decimals = 3) |>
+#   cols_align(align = "right", columns = -Statistic) |>
+#   opt_table_outline()
+df %>%
+kbl(
+  caption = "Table 1.5: Centrality summaries (unweighted)",
+  booktabs = TRUE,
+  align = c("l", rep("r", ncol(df) - 1)),
+  digits = 3
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "condensed"),
+    full_width = FALSE,
+    fixed_thead = TRUE,
+    latex_options = c("hold_position")
+  ) %>%
+  column_spec(1, bold = TRUE)
 
 ```
 
@@ -634,11 +679,11 @@ summary(betweenness(g_peer))
 # #Distribution of centrality measures 
 # 
 # op <- par(mar=c(2,2,7,0),mfrow=c(2,3))
-# hist(V(g_peer)$degree, col="royalblue3", main="Degree", xlim=c(0,25), ylim=c(0,25), axes=TRUE)
-# hist(V(g_peer)$degree.in, col="royalblue3", main="Indegree", xlim=c(0,25), ylim=c(0,25), axes=TRUE)
-# hist(V(g_peer)$degree.out, col="royalblue3", main="Outdegree", xlim=c(0,15), ylim=c(0,25), axes=TRUE)
-# hist(V(g_peer)$closeness, col="royalblue3", main="Closeness", xlim=c(0,0.005), ylim=c(0,25), axes=TRUE)
-# hist(V(g_peer)$betweenness, col="royalblue3", main="Betweenness", xlim=c(0,140), ylim=c(0,25), axes=TRUE)
+# hist(V(g_peer_ps)$degree, col="royalblue3", main="Degree", xlim=c(0,25), ylim=c(0,25), axes=TRUE)
+# hist(V(g_peer_ps)$degree.in, col="royalblue3", main="Indegree", xlim=c(0,25), ylim=c(0,25), axes=TRUE)
+# hist(V(g_peer_ps)$degree.out, col="royalblue3", main="Outdegree", xlim=c(0,15), ylim=c(0,25), axes=TRUE)
+# hist(V(g_peer_ps)$closeness, col="royalblue3", main="Closeness", xlim=c(0,0.005), ylim=c(0,25), axes=TRUE)
+# hist(V(g_peer_ps)$betweenness, col="royalblue3", main="Betweenness", xlim=c(0,140), ylim=c(0,25), axes=TRUE)
 # mtext("Figure 1.1: Distribution of centrality measures in the Procedural Skills network", side = 3, line =-2, outer = TRUE)
 # par(op)
 
@@ -654,9 +699,9 @@ summary(betweenness(g_peer))
 
 
 ```{r echo=FALSE, warning=FALSE}
-plot(g_peer,
-     vertex.color = V(g_peer)$clr,
-     vertex.size=(V(g_peer)$w_degree),
+plot(g_peer_ps,
+     vertex.color = V(g_peer_ps)$clr,
+     vertex.size=(V(g_peer_ps)$w_degree),
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
@@ -681,9 +726,9 @@ legend("bottomright",
        pt.cex = 1.0, bty = "n")
 
 
-plot(g_peer,
-     vertex.color = V(g_peer)$clr,
-     vertex.size=(V(g_peer)$w_in)*2,
+plot(g_peer_ps,
+     vertex.color = V(g_peer_ps)$clr,
+     vertex.size=(V(g_peer_ps)$w_in)*2,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
@@ -708,9 +753,9 @@ legend("bottomright",
        pt.cex = 1.0, bty = "n")
 
 
-plot(g_peer,
-     vertex.color = V(g_peer)$clr,
-     vertex.size=(V(g_peer)$w_out)*2,
+plot(g_peer_ps,
+     vertex.color = V(g_peer_ps)$clr,
+     vertex.size=(V(g_peer_ps)$w_out)*2,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
@@ -737,11 +782,11 @@ legend("bottomright",
 
 
 ```{r echo=FALSE, warning=FALSE}
-E(g_peer)$dist <- 1 / E(g_peer)$weight
-cnet <- cluster_edge_betweenness(g_peer, weights = E(g_peer)$dist, directed = TRUE) # distances for betweenness
+E(g_peer_ps)$dist <- 1 / E(g_peer_ps)$weight
+cnet <- cluster_edge_betweenness(g_peer_ps, weights = E(g_peer_ps)$dist, directed = TRUE) # distances for betweenness
 plot(cnet,
-     g_peer,
-     vertex.size= log(V(g_peer)$degree)*7,
+     g_peer_ps,
+     vertex.size= log(V(g_peer_ps)$degree)*7,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      edge.color = "grey",
@@ -761,31 +806,31 @@ plot(cnet,
 A_RS <- A[res_idx, sup_idx, drop = FALSE]
 
 # undirected bipartite graph via incidence matrix
-g_bi_und <- graph_from_biadjacency_matrix(A_RS, weighted = TRUE)
+g_bi_und_ps <- graph_from_biadjacency_matrix(A_RS, weighted = TRUE)
 
 # mark types: FALSE for residents (rows), TRUE for supervisors (cols)
-V(g_bi_und)$type <- c(rep(FALSE, nrow(A_RS)), rep(TRUE, ncol(A_RS)))
+V(g_bi_und_ps)$type <- c(rep(FALSE, nrow(A_RS)), rep(TRUE, ncol(A_RS)))
 
 # Layout & quick plot
-# L_bi <- layout_as_bipartite(g_bi_und, types = V(g_bi_und)$type)
-# plot(g_bi_und, layout = L_bi,
-#      vertex.shape = ifelse(V(g_bi_und)$type, "square", "circle"),
-#      edge.width = scales::rescale(E(g_bi_und)$weight, to = c(1,5)))
+# L_bi <- layout_as_bipartite(g_bi_und_ps, types = V(g_bi_und_ps)$type)
+# plot(g_bi_und_ps, layout = L_bi,
+#      vertex.shape = ifelse(V(g_bi_und_ps)$type, "square", "circle"),
+#      edge.width = scales::rescale(E(g_bi_und_ps)$weight, to = c(1,5)))
 ```
 
 ```{r echo=FALSE, results='asis'}
-types <- V(g_bi_und)$type
+types <- V(g_bi_und_ps)$type
 n_res <- sum(!types, na.rm = TRUE)   # |R|
 n_sup <- sum( types, na.rm = TRUE)   # |S|
-n     <- vcount(g_bi_und)            # total nodes
-Ecnt  <- ecount(g_bi_und)            
+n     <- vcount(g_bi_und_ps)            # total nodes
+Ecnt  <- ecount(g_bi_und_ps)            
 
 # Unweighted bipartite density: E / (|R| * |S|)
 denom <- n_res * n_sup
 d_bip <- if (denom > 0) Ecnt / denom else NA_real_
 
 # Tie strengths (if your graph has edge weights)
-w  <- edge_attr(g_bi_und, "weight")
+w  <- edge_attr(g_bi_und_ps, "weight")
 if (is.null(w)) w <- rep(1, Ecnt)   # fallback: treat ties as 1
 Sw <- sum(w, na.rm = TRUE)          # total tie strength Σw
 Mw <- if (length(w)) median(w, na.rm = TRUE) else NA_real_
@@ -823,18 +868,18 @@ $$
 
 ```{r echo=FALSE, results='asis', message=FALSE}
 
-types <- V(g_bi_und)$type
+types <- V(g_bi_und_ps)$type
 m <- sum(!types)   # |R| Residents
 n <- sum(types)    # |S| Supervisors
 denom <- m * n
 
 # --- Unweighted bipartite density (E / (|R||S|))
-Ecnt <- ecount(g_bi_und)
+Ecnt <- ecount(g_bi_und_ps)
 d_bi <- Ecnt / denom 
 
 # --- Weighted bipartite density: average cross-mode weight
-has_w <- "weight" %in% edge_attr_names(g_bi_und)
-sum_w <- if (has_w) sum(E(g_bi_und)$weight, na.rm = TRUE) else NA_real_
+has_w <- "weight" %in% edge_attr_names(g_bi_und_ps)
+sum_w <- if (has_w) sum(E(g_bi_und_ps)$weight, na.rm = TRUE) else NA_real_
 d_bi_w <- if (has_w && denom > 0) sum_w / denom else NA_real_
 
 
@@ -847,11 +892,11 @@ cat(sprintf("Weighted bipartite density = %.4f  \n", d_bi_w))
 
 Centralization is a characteristics of the whole network (as opposed to the individual nodes). 
 
-```{r bipartite-centralization, results='asis', echo=FALSE}
+```{r bipartite-centralization ps, results='asis', echo=FALSE}
 
 
 # ---- Degree centralization per side (binary) ----
-deg <- degree(g_bi_und)         # undirected degree
+deg <- degree(g_bi_und_ps)         # undirected degree
 deg_R <- deg[!types]
 deg_S <- deg[ types]
 
@@ -867,43 +912,43 @@ cat(sprintf("Degree centralization (Residents) = %.4f  \n", cen_R))
 cat(sprintf("Degree centralization (Supervisors) = %.4f  \n", cen_S))
 
 # ---- Betweenness centralization (overall, unweighted) ----
-cb <- centr_betw(g_bi_und)$centralization
+cb <- centr_betw(g_bi_und_ps)$centralization
 cat(sprintf("Betweenness centralization (overall) = %.4f  \n", cb))
 ```
 
 ### Centrality 
 ```{r echo=FALSE}
 # Unweighted degree (number of ties)
-deg <- degree(g_bi_und)         
-V(g_bi_und)$degree <- deg       
+deg <- degree(g_bi_und_ps)         
+V(g_bi_und_ps)$degree <- deg       
 
 # Strength (sum of incident weights) — compute or fill with NA of correct length
-if ("weight" %in% edge_attr_names(g_bi_und)) {
-  V(g_bi_und)$strength <- strength(g_bi_und, weights = E(g_bi_und)$weight)
+if ("weight" %in% edge_attr_names(g_bi_und_ps)) {
+  V(g_bi_und_ps)$strength <- strength(g_bi_und_ps, weights = E(g_bi_und_ps)$weight)
 } else {
-  V(g_bi_und)$strength <- rep(NA_real_, vcount(g_bi_und))
+  V(g_bi_und_ps)$strength <- rep(NA_real_, vcount(g_bi_und_ps))
 }
 
-types <- V(g_bi_und)$type
+types <- V(g_bi_und_ps)$type
 grp   <- ifelse(types, "Supervisor", "Resident")
 
-deg_res <- degree(g_bi_und, v = V(g_bi_und)[!types])
-deg_sup <- degree(g_bi_und, v = V(g_bi_und)[ types])
+deg_res <- degree(g_bi_und_ps, v = V(g_bi_und_ps)[!types])
+deg_sup <- degree(g_bi_und_ps, v = V(g_bi_und_ps)[ types])
 
 # tapply(deg, grp, summary)        # quick summaries by group
 
 verts <- data.frame(
-  name     = V(g_bi_und)$name,
+  name     = V(g_bi_und_ps)$name,
   group    = grp,
-  degree   = V(g_bi_und)$degree,
-  strength = V(g_bi_und)$strength
+  degree   = V(g_bi_und_ps)$degree,
+  strength = V(g_bi_und_ps)$strength
 )
 verts %>%
   filter(group == "Resident") %>%
   select(name, degree, strength) %>%
   kbl(
     col.names = c("Resident", "Out-degree", "Strength (sum of weights)"),
-    caption="Table 1.5: Degree centrality for each resident in the bipartite Procedural Skills network") %>%
+    caption="Table 1.6: Degree centrality for each resident in the bipartite Procedural Skills network") %>%
   kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T)
 
 verts %>%
@@ -911,7 +956,7 @@ verts %>%
   select(name, degree, strength) %>%
   kbl(
     col.names = c("Supervisor", "In-degree", "Strength (sum of weights)"),
-    caption="Table 1.6: Degree centrality for each supervisor in the bipartite Procedural Skills network") %>%
+    caption="Table 1.7: Degree centrality for each supervisor in the bipartite Procedural Skills network") %>%
   kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T)
 ```
 
@@ -933,7 +978,7 @@ save_as_docx(ft, path = "table.docx")
 
 ```{r echo=FALSE}
 # Identify groups
-types <- V(g_bi_und)$type                 # TRUE = supervisors (columns), FALSE = residents (rows)
+types <- V(g_bi_und_ps)$type                 # TRUE = supervisors (columns), FALSE = residents (rows)
 res <- which(!types)
 sup <- which(types)
 
@@ -946,34 +991,34 @@ x_sup <- seq_along(sup) * hspace
 y_res <- rep(y_gap, length(res))   # residents on top
 y_sup <- rep(2,     length(sup))   # supervisors bottom
 
-L <- matrix(NA_real_, nrow = vcount(g_bi_und), ncol = 2)
+L <- matrix(NA_real_, nrow = vcount(g_bi_und_ps), ncol = 2)
 L[res,] <- cbind(x_res, y_res)
 L[sup,] <- cbind(x_sup, y_sup)
 
 # Styling: colors, label size, edge visibility
-V(g_bi_und)$color <- net.attr$clr
-V(g_bi_und)$shape <- net.attr$Shape
-V(g_bi_und)$frame.color <- "black"
+V(g_bi_und_ps)$color <- net.attr$clr
+V(g_bi_und_ps)$shape <- net.attr$Shape
+V(g_bi_und_ps)$frame.color <- "black"
 
 # labels smaller & readable
 lab_cex <- 0.65
 lab_col <- "black"
 
 # edge width scaled by weight (or set a fixed width if unweighted)
-w <- E(g_bi_und)$weight
-if (is.null(w)) w <- rep(1, ecount(g_bi_und))
+w <- E(g_bi_und_ps)$weight
+if (is.null(w)) w <- rep(1, ecount(g_bi_und_ps))
 mx <- max(w, na.rm = TRUE); if (!is.finite(mx) || mx == 0) mx <- 1
-E(g_bi_und)$width <- 1 + 3 * (w / mx)                       # thicker edges
-E(g_bi_und)$color <- grDevices::adjustcolor("grey20", 0.6)   # darker + semi-transparent
-E(g_bi_und)$curved <- 0.08                                   # slight curvature reduces overlap
+E(g_bi_und_ps)$width <- 1 + 3 * (w / mx)                       # thicker edges
+E(g_bi_und_ps)$color <- grDevices::adjustcolor("grey20", 0.6)   # darker + semi-transparent
+E(g_bi_und_ps)$curved <- 0.08                                   # slight curvature reduces overlap
 
 # 5) Plot
 op <- par(mar = c(1,1,1,1))
 plot(
-  g_bi_und, layout = L,
-  vertex.shape = V(g_bi_und)$shape,
-  vertex.size = 4+ V(g_bi_und)$degree * 2,
-  vertex.label = V(g_bi_und)$name,
+  g_bi_und_ps, layout = L,
+  vertex.shape = V(g_bi_und_ps)$shape,
+  vertex.size = 4+ V(g_bi_und_ps)$degree * 2,
+  vertex.label = V(g_bi_und_ps)$name,
   vertex.label.cex = lab_cex,
   vertex.label.color = lab_col,
   edge.arrow.size = 0.5,
@@ -1001,10 +1046,10 @@ par(op)
 ```{r echo=FALSE}
 op <- par(mar = c(1,1,1,1))
 plot(
-  g_bi_und, layout = L,
-  vertex.shape = V(g_bi_und)$shape,
-  vertex.size = 3+ V(g_bi_und)$strength * 0.5,
-  vertex.label = V(g_bi_und)$name,
+  g_bi_und_ps, layout = L,
+  vertex.shape = V(g_bi_und_ps)$shape,
+  vertex.size = 3+ V(g_bi_und_ps)$strength * 0.5,
+  vertex.label = V(g_bi_und_ps)$name,
   vertex.label.cex = lab_cex,
   vertex.label.color = lab_col,
   edge.arrow.size = 0.5,
@@ -1029,3 +1074,3098 @@ legend("bottomright",
 par(op)
 ```
 
+
+# **2) Factual Knowledge networks**  
+
+```{r echo=FALSE}
+# 1) Start from adjacency df
+adj_df <- all_sheets$`Factual Knowledge`
+
+# 2) Make sure names match ids, then build a matrix
+
+id_check <- check_colnames_match_ids(adj_df)
+
+stopifnot(id_check$standard_id)
+
+# 3) matrix 
+
+A <- adj_df %>%
+  mutate(across(-1, as.numeric)) %>%         # ensure numeric
+  { mat <- as.matrix(.[-1]); rownames(mat) <- net.attr$id; mat }
+colnames(A) <- rownames(A)
+```
+
+
+```{r echo=FALSE}
+sup_idx <- grepl("^S", rownames(A))   # supervisors
+res_idx <- !sup_idx   # residents
+
+
+## 1) Peer network among residents only (R–R)
+A_RR <- A[res_idx, res_idx, drop = FALSE]
+
+g_peer_fk <- graph_from_adjacency_matrix(
+  A_RR,
+  mode    = "directed",
+  weighted = TRUE,
+  diag     = FALSE
+)
+
+```
+
+
+
+##  A) Factual Knowledge network - Peer network
+```{r echo=FALSE, results='asis'}
+## Compute stats for Peer network
+n  <- vcount(g_peer_fk)
+E  <- ecount(g_peer_fk)                      
+d  <- edge_density(g_peer_fk, loops = FALSE) # unweighted density
+w  <- E(g_peer_fk)$weight
+Sw <- sum(w, na.rm = TRUE)                # total tie strength Σw
+Mw <- if (length(w)) median(w, na.rm = TRUE) else NA_real_
+
+## 3) Print the sentence
+cat(sprintf(
+  "Across %d nodes, the network contains %d ties, ",
+  n, E
+))
+cat(sprintf(
+  "with a total tie strength of %d and a median tie strength of %d.  \n",
+  Sw, Mw
+))
+```
+
+
+
+
+
+
+```{r echo=FALSE}
+# Peer network attributes 
+idx <- match(V(g_peer_fk)$name, net.attr$id)
+V(g_peer_fk)$clr <- net.attr$clr[idx]
+V(g_peer_fk)$Level <- net.attr$Level[idx]
+V(g_peer_fk)$Gender <- net.attr$Gender[idx]
+V(g_peer_fk)$shape <- net.attr$Shape[idx]
+```
+
+
+```{r echo = FALSE, warning = FALSE, fig.width=10, fig.height=6, out.width='80%', fig.retina=1, fig.align='center'}
+#### set network layout
+# layout_with_graphopt(g_peer_fk)
+L <- layout.fruchterman.reingold(g_peer_fk)
+# edge weight for network plot
+w <- E(g_peer_fk)$weight
+if (!is.null(w)) {
+  rng <- range(w, na.rm = TRUE)
+  E(g_peer_fk)$width <- if (diff(rng) == 0) 2 else 1 + 3 * (w - rng[1]) / diff(rng)
+}
+#plot
+plot(g_peer_fk,
+     layout = L,
+     vertex.color = V(g_peer_fk)$clr,
+     vertex.shape = V(g_peer_fk)$Shape,   
+     vertex.size = 20,
+     vertex.label = V(g_peer_fk)$label,   # show labels explicitly
+     vertex.label.cex = 0.65,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     main = "Figure 2.1: Factual Knowledge Peer Network Map",
+     margin = 0.1)
+
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+```
+
+
+
+#### Density (Directed)
+
+Assuming no self-loops, the (unweighted) density of a directed network is the proportion of possible ties that are present:
+
+$$
+D \;=\; \frac{E}{n(n-1)},
+$$
+
+where $n$ is the number of nodes and $E$ is the number of observed directed ties.
+
+#### Weighted Density (Directed)
+
+Following the “average tie strength across all possible dyads” idea, the **weighted** density treats missing ties as weight $0$ and averages weights over all ordered pairs:
+
+$$
+D_w \;=\; \frac{\sum_{i \ne j} w_{ij}}{n(n-1)}.
+$$
+
+
+```{r echo=FALSE, results='asis'}
+dens <- round(edge_density(g_peer_fk, loops = FALSE), 4)
+
+n      <- vcount(g_peer_fk)
+sum_w  <- sum(E(g_peer_fk)$weight, na.rm = TRUE)
+wd_avg <- sum_w / (n * (n - 1))   # directed: avg weight per possible arc
+
+cat(sprintf("Density of the Factual Knowledge Peer Network = %.4f  \n", dens))
+cat(sprintf("Weighted density (avg weight per possible arc) = %.3f  \n", wd_avg))
+```
+
+### Centralization (Unweighted)
+
+Centralization is a characteristics of the whole network (as opposed to the individual nodes). 
+
+```{r results='asis', echo = FALSE}
+n1 <- round(centr_degree(g_peer_fk)$centralization,4)
+cat(paste0("Degree centralization = ", n1,"  \n")) 
+
+n1 <- round(centr_degree(g_peer_fk, mode="in")$centralization,4)
+cat(paste0("Indegree centralization = ", n1,"  \n")) 
+
+n1 <- round(centr_degree(g_peer_fk, mode="out")$centralization,4)
+cat(paste0("Outdegree centralization = ", n1,"  \n")) 
+
+n1 <- round(centr_betw(g_peer_fk)$centralization,4)
+cat(paste0("Betweenness centralization = ", n1,"  \n")) 
+```
+
+```{r eval=FALSE, results='asis', echo=FALSE}
+
+# ---- Optional: set to your scale max (e.g., survey 0–5). Leave NA for unnormalized.
+max_w <- NA_real_   # e.g., set to 5 if weights are on 0..5
+
+# ---- Helper: Freeman-style centralization from a centrality vector
+centr_freeman <- function(x, denom = NULL) {
+  x <- as.numeric(x)
+  num <- sum(max(x, na.rm = TRUE) - x, na.rm = TRUE)
+  if (!is.null(denom) && is.finite(denom) && denom > 0) {
+    list(centralization = num / denom, numerator = num, denominator = denom)
+  } else {
+    list(centralization = NA_real_, numerator = num, denominator = NA_real_)
+  }
+}
+
+# ---- Helper: star denominators for strength-based centralization
+# mode: "all" (undirected-like), "out", or "in"
+star_strength_denom <- function(n, mode = c("all","out","in"), max_w) {
+  mode <- match.arg(mode)
+  if (!is.finite(max_w) || max_w <= 0) return(NA_real_)
+  if (mode == "all") {
+    # undirected star with weight = max_w on each spoke
+    # center strength = (n-1)*max_w; leaf strength = max_w
+    # sum(max - s_i) = (n-1)*( (n-1)*max_w - max_w ) = (n-1)*(n-2)*max_w
+    return( (n - 1) * (n - 2) * max_w )
+  } else {
+    # directed star (all out or all in): center has (n-1)*max_w, others 0
+    # sum(max - s_i) = (n-1) * ((n-1)*max_w) = (n-1)^2 * max_w
+    return( (n - 1)^2 * max_w )
+  }
+}
+
+# ---- Weighted degree centralizations (use strengths)
+n <- vcount(g_peer_fk)
+
+s_all <- strength(g_peer_fk, mode = "all", weights = E(g_peer_fk)$weight)   # total strength
+s_in  <- strength(g_peer_fk, mode = "in",  weights = E(g_peer_fk)$weight)
+s_out <- strength(g_peer_fk, mode = "out", weights = E(g_peer_fk)$weight)
+
+den_all <- star_strength_denom(n, "all", max_w)
+den_in  <- star_strength_denom(n, "in",  max_w)
+den_out <- star_strength_denom(n, "out", max_w)
+
+c_all <- centr_freeman(s_all, den_all)
+c_in  <- centr_freeman(s_in,  den_in)
+c_out <- centr_freeman(s_out, den_out)
+
+# ---- Weighted betweenness centralization
+# Treat weights as strengths => convert to distances for shortest paths
+w <- E(g_peer_fk)$weight
+if (any(!is.finite(w)) || any(w <= 0, na.rm = TRUE)) {
+  # guard: drop or replace nonpositive weights if they exist
+  w[w <= 0 | !is.finite(w)] <- NA_real_
+}
+E(g_peer_fk)$dist <- 1 / w
+
+b_w <- betweenness(g_peer_fk, directed = TRUE, weights = E(g_peer_fk)$dist, normalized = FALSE)
+
+# Denominator via star graph (max centralization shape). Use the larger of in/out stars.
+star_out <- make_star(n, mode = "out", center = 1)
+E(star_out)$dist <- rep(1, ecount(star_out))
+b_star_out <- betweenness(star_out, directed = TRUE, weights = E(star_out)$dist, normalized = FALSE)
+den_b_out <- sum(max(b_star_out) - b_star_out)
+
+star_in <- make_star(n, mode = "in", center = 1)
+E(star_in)$dist <- rep(1, ecount(star_in))
+b_star_in <- betweenness(star_in, directed = TRUE, weights = E(star_in)$dist, normalized = FALSE)
+den_b_in <- sum(max(b_star_in) - b_star_in)
+
+den_b <- max(den_b_out, den_b_in)
+c_betw <- centr_freeman(b_w, denom = den_b)
+
+# ---- Print nicely
+fmt <- function(x) if (is.na(x)) "NA" else sprintf("%.4f", x)
+
+cat(paste0(
+  "**Weighted Degree centralization** (total strength): ",
+  fmt(c_all$centralization), "  \n",
+  if (is.finite(max_w)) paste0("_(normalized with max_w = ", max_w, ")_  \n") else "_(unnormalized; set max_w to normalize)_  \n\n"
+))
+
+cat(paste0(
+  "**Weighted In-degree centralization** (in-strength): ",
+  fmt(c_in$centralization), "  \n",
+  if (is.finite(max_w)) "" else "_(unnormalized)_  \n\n"
+))
+
+cat(paste0(
+  "**Weighted Out-degree centralization** (out-strength): ",
+  fmt(c_out$centralization), "  \n",
+  if (is.finite(max_w)) "" else "_(unnormalized)_  \n\n"
+))
+
+cat(paste0(
+  "**Weighted Betweenness centralization** (shortest paths via 1/weight): ",
+  fmt(c_betw$centralization), "  \n\n"
+))
+
+# (Optional) also show numerators if you want the raw values:
+# cat(sprintf("Numerators — strength(all): %.3f, in: %.3f, out: %.3f; betweenness: %.3f\n",
+#             c_all$numerator, c_in$numerator, c_out$numerator, c_betw$numerator))
+```
+
+
+### Reciprocity
+
+Reciprocity is again a whole network measure, and shows the likelihood of nodes to be mutually linked.
+
+```{r echo=FALSE, results = 'asis'}
+
+n <- round(reciprocity(g_peer_fk),4)
+cat(paste0("Reciprocity of the the Factual Knowledge Network = ", n,"  \n"))
+
+## --- Weighted reciprocity (Garlaschelli–Loffredo style) --------------
+# r_w = sum_{i<j} min(w_ij, w_ji) / sum_{i≠j} w_ij   (∈ [0,1])
+W <- as.matrix(as_adjacency_matrix(g_peer_fk, attr = "weight", sparse = FALSE))
+W[is.na(W)] <- 0
+diag(W) <- 0
+num <- sum(pmin(W, t(W))[upper.tri(W)])  # mutual weight (no double-count)
+den <- sum(W)
+r_w <- if (den > 0) num / den else NA_real_
+
+cat(sprintf("Weighted reciprocity: %.3f  \n", r_w))
+
+```
+
+### Clique
+
+Cliques are a way to define subgroups based on social cohesion. A clique is a maximally complete subgroup, that is, a subgroup with all possible ties. In other words, a clique is a maximal complete subgraph of a given graph — i.e., a group of people where everybody is connected directly to everyone else. The word “maximal” means that no other nodes can be added to the clique without making it less connected.
+
+```{r results='asis', echo=FALSE, warning=FALSE}
+
+n1=clique.number(g_peer_fk)
+cat(paste("Number of cliques = ", n1,"  \n"))  
+
+#cliques(g_peer_fk, min=6)
+#maximal.cliques(g_peer_fk,min=6)
+#largest.cliques(g_peer_fk)
+```
+
+```{r echo=FALSE}
+# ### k-cor
+# # coreness
+# coreness <- coreness(g_peer_fk, mode = "in")  # coreness(g_peer_fk, mode = "all"/"in"/"out" if directed)
+# table(coreness); max(coreness)
+# 
+# 
+# # color by coreness with a palette (coreness often starts at 0)
+# pal <- colorRampPalette(c("lightyellow","orange","red"))(max(coreness) + 1)
+# V(g_peer_fk)$color <- pal[coreness + 1]
+# 
+# # plot
+# op <- par(mar = rep(0, 4))
+# plot(g_peer_fk, vertex.label.cex =0.7)  
+# par(op)
+
+```
+
+
+
+### Clusters  
+```{r results='asis', echo=FALSE, warning=FALSE}
+
+n1=no.clusters(g_peer_fk)
+cat(paste0("Number of clusters = ", n1,"  \n"))  
+
+
+```  
+
+### Centrality 
+
+```{r eval=FALSE, echo=FALSE}
+# Centrality measures are characteristics of individual nodes and help us identify the most important or central person in the network. Below, you can find the definition of some centrality measures:
+# 
+# * Degree centrality: The number of ties a node has (sum of indegree and outdegree)  
+# 
+# * Indegree centrality: The number of nominations by others  
+# 
+# * Outdegree centrality: The number of nominating others  
+# 
+# * Closeness centrality: The inverse of the peripherality (i.e., the sum of a node's distances to all other nodes). The more central a node is, the lower its total distance to all other nodes. This measure shows us how long it will take to spread information from a specific node to all other nodes. I considered "all" types of paths (to and from the nodes) to calculate closeness.  
+# 
+# * Betweenness centrality: The number of times a node acts as a bridge along the shortest path between two other nodes. It shows us who has the control of the communication across the network.
+```
+
+
+
+```{r echo=FALSE}
+df.prom <- data.frame(
+  Degree = degree(g_peer_fk),
+  Indegree = degree(g_peer_fk,mode="in"),
+  Outdegree = degree(g_peer_fk,mode="out"),
+  Closeness = round(closeness(g_peer_fk, mode="all", weights = NA),4),
+  Betweenness = round(betweenness(g_peer_fk, directed=T, weights=NA),4)
+)
+
+#Table
+kbl(df.prom, caption="Table 2.1: Centrality measures for each resident in the Factual Knowledge network (unweighted)") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T) %>%
+  column_spec(1, bold = T, border_right = T)
+
+
+#edge_betweenness = edge_betweenness(g_peer_fk, directed=T, weights=NA)
+```
+
+```{r echo=FALSE}
+###TABLE
+
+Degree3 <- df.prom %>% 
+    arrange(desc(Degree)) %>% 
+    head(n=3)
+Indegree3 <- df.prom %>% 
+    arrange(desc(Indegree)) %>% 
+    head(n=3)
+Outdegree3 <- df.prom %>% 
+    arrange(desc(Outdegree)) %>% 
+    head(n=3)
+Closeness3 <- df.prom %>% 
+    arrange(desc(Closeness)) %>% 
+    head(n=3)
+Betweenness3 <- df.prom %>% 
+    arrange(desc(Betweenness)) %>% 
+    head(n=3)
+
+df.prom5 <- data.frame(
+  Degree = Degree3 %>% row.names(),
+  Indegree = Indegree3 %>% row.names(),
+  Outdegree = Outdegree3 %>% row.names(),
+  Closeness = Closeness3 %>% row.names(),
+  Betweenness = Betweenness3 %>% row.names()
+  )
+kbl(df.prom5, caption="Table 2.2: Top three central nodes in the Factual Knowledge network (unweighted)", align = "c") %>%
+  kable_paper(full_width = F, fixed_thead = T, position = "center")
+```
+
+
+```{r echo=FALSE}
+df.prom <- data.frame(
+  Degree = strength(g_peer_fk, mode = "all",  weights = E(g_peer_fk)$weight),
+  Indegree = strength(g_peer_fk, mode = "in",  weights = E(g_peer_fk)$weight),
+  Outdegree = strength(g_peer_fk, mode = "out",  weights = E(g_peer_fk)$weight),
+  Closeness = round(closeness(g_peer_fk, mode="all", weights = E(g_peer_fk)$weight),4),
+  Betweenness = round(betweenness(g_peer_fk, directed=T, weights=E(g_peer_fk)$weight),4)
+)
+
+
+#Table
+kbl(df.prom, caption="Table 2.3: Weighted Centrality measures for each resident in the Factual Knowledge network") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T) %>%
+  column_spec(1, bold = T, border_right = T)
+
+
+#edge_betweenness = edge_betweenness(g_peer_fk, directed=T, weights=NA)
+```
+
+```{r echo=FALSE}
+###TABLE
+
+Degree3 <- df.prom %>% 
+    arrange(desc(Degree)) %>% 
+    head(n=3)
+Indegree3 <- df.prom %>% 
+    arrange(desc(Indegree)) %>% 
+    head(n=3)
+Outdegree3 <- df.prom %>% 
+    arrange(desc(Outdegree)) %>% 
+    head(n=3)
+Closeness3 <- df.prom %>% 
+    arrange(desc(Closeness)) %>% 
+    head(n=3)
+Betweenness3 <- df.prom %>% 
+    arrange(desc(Betweenness)) %>% 
+    head(n=3)
+
+df.prom5 <- data.frame(
+  Degree = Degree3 %>% row.names(),
+  Indegree = Indegree3 %>% row.names(),
+  Outdegree = Outdegree3 %>% row.names(),
+  Closeness = Closeness3 %>% row.names(),
+  Betweenness = Betweenness3 %>% row.names()
+  )
+kbl(df.prom5, caption="Table 2.4: Top three central nodes in the Factual Knowledge network (Weighted)", align = "c") %>%
+  kable_paper(full_width = F, fixed_thead = T, position = "center")
+```
+
+
+
+```{r echo=FALSE}
+
+V(g_peer_fk)$degree <- degree(g_peer_fk)
+
+V(g_peer_fk)$degree.in <- degree(g_peer_fk, mode="in")
+
+V(g_peer_fk)$degree.out <- degree(g_peer_fk, mode="out")
+
+V(g_peer_fk)$closeness <- closeness(g_peer_fk)
+
+V(g_peer_fk)$betweenness <- betweenness(g_peer_fk)
+
+
+## --- Weighted in/out degree (a.k.a. strength) ------------------------
+V(g_peer_fk)$w_degree  <- strength(g_peer_fk, mode = "all",  weights = E(g_peer_fk)$weight)
+V(g_peer_fk)$w_in  <- strength(g_peer_fk, mode = "in",  weights = E(g_peer_fk)$weight)
+V(g_peer_fk)$w_out <- strength(g_peer_fk, mode = "out", weights = E(g_peer_fk)$weight)
+V(g_peer_fk)$w_close <- round(closeness(g_peer_fk, mode="all", weights = E(g_peer_fk)$weight),4)
+V(g_peer_fk)$w_btw <- round(betweenness(g_peer_fk, directed=T, weights=E(g_peer_fk)$weight),4)
+
+
+## _____________ vertex attributes
+# vertex_attr_names(g_peer_fk)
+```
+
+```{r Table 2.5, echo=FALSE}
+
+# Helper to compute a robust numeric summary (handles NAs)
+summarize_vec <- function(x) {
+  c(
+    "Min."     = min(x, na.rm = TRUE),
+    "1st Qu."  = as.numeric(quantile(x, 0.25, na.rm = TRUE, names = FALSE)),
+    "Median"   = median(x, na.rm = TRUE),
+    "Mean"     = mean(x, na.rm = TRUE),
+    "3rd Qu."  = as.numeric(quantile(x, 0.75, na.rm = TRUE, names = FALSE)),
+    "Max."     = max(x, na.rm = TRUE)
+  )
+}
+
+# Compute the five centralities
+metrics <- list(
+  "Degree"      = degree(g_peer_fk),
+  "In-degree"   = degree(g_peer_fk, mode = "in"),
+  "Out-degree"  = degree(g_peer_fk, mode = "out"),
+  "Closeness"   = closeness(g_peer_fk),
+  "Betweenness" = betweenness(g_peer_fk)
+)
+
+# Build a tidy summary table
+df <- sapply(metrics, summarize_vec) %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column("Statistic")
+
+
+df %>%
+kbl(
+  caption = "Table 2.5: Centrality summaries (unweighted)",
+  booktabs = TRUE,
+  align = c("l", rep("r", ncol(df) - 1)),
+  digits = 3
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "condensed"),
+    full_width = FALSE,
+    fixed_thead = TRUE,
+    latex_options = c("hold_position")
+  ) %>%
+  column_spec(1, bold = TRUE)
+
+```
+
+
+
+
+
+
+```{r echo=FALSE, warning=FALSE}
+plot(g_peer_fk,
+     vertex.color = V(g_peer_fk)$clr,
+     vertex.size=(V(g_peer_fk)$w_degree),
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold,
+     Layout = 1,
+     main=list("Figure 2.2: Factual Knowledge Network: Nodes' size adjusted based on Weighted Degrees (Strength)",cex = 0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+
+plot(g_peer_fk,
+     vertex.color = V(g_peer_fk)$clr,
+     vertex.size=(V(g_peer_fk)$w_in)*2,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold, 
+     Layout = 1,
+     main=list("Figure 2.3: Factual Knowledge Network: Nodes' size adjusted based on Weighted Indegrees", cex=0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+
+plot(g_peer_fk,
+     vertex.color = V(g_peer_fk)$clr,
+     vertex.size=(V(g_peer_fk)$w_out)*2,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold,
+     Layout = 1,
+     main=list("Figure 2.4: Factual Knowledge Network: Nodes' size adjusted based on Weighted Outdegrees", cex=0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+E(g_peer_fk)$dist <- 1 / E(g_peer_fk)$weight
+cnet <- cluster_edge_betweenness(g_peer_fk, weights = E(g_peer_fk)$dist, directed = TRUE) # distances for betweenness
+plot(cnet,
+     g_peer_fk,
+     vertex.size= log(V(g_peer_fk)$degree)*7,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     main=list("Figure 2.5: Factual Knowledge Network - Communities (connection of densely connected groups)", cex=0.8),
+     layout = layout.fruchterman.reingold,
+     displaylabels=TRUE)
+
+
+```
+
+## B) Factual Knowledge network - Resident–Supervisor network (bipartite)
+
+```{r echo=FALSE}
+
+## 2) Resident–Supervisor network (bipartite) as a rectangular block (R rows, S cols)
+A_RS <- A[res_idx, sup_idx, drop = FALSE]
+
+# undirected bipartite graph via incidence matrix
+g_bi_und_fk <- graph_from_biadjacency_matrix(A_RS, weighted = TRUE)
+
+# mark types: FALSE for residents (rows), TRUE for supervisors (cols)
+V(g_bi_und_fk)$type <- c(rep(FALSE, nrow(A_RS)), rep(TRUE, ncol(A_RS)))
+
+# Layout & quick plot
+# L_bi <- layout_as_bipartite(g_bi_und_fk, types = V(g_bi_und_fk)$type)
+# plot(g_bi_und_fk, layout = L_bi,
+#      vertex.shape = ifelse(V(g_bi_und_fk)$type, "square", "circle"),
+#      edge.width = scales::rescale(E(g_bi_und_fk)$weight, to = c(1,5)))
+```
+
+```{r echo=FALSE, results='asis'}
+types <- V(g_bi_und_fk)$type
+n_res <- sum(!types, na.rm = TRUE)   # |R|
+n_sup <- sum( types, na.rm = TRUE)   # |S|
+n     <- vcount(g_bi_und_fk)            # total nodes
+Ecnt  <- ecount(g_bi_und_fk)            
+
+# Unweighted bipartite density: E / (|R| * |S|)
+denom <- n_res * n_sup
+d_bip <- if (denom > 0) Ecnt / denom else NA_real_
+
+# Tie strengths (if your graph has edge weights)
+w  <- edge_attr(g_bi_und_fk, "weight")
+if (is.null(w)) w <- rep(1, Ecnt)   # fallback: treat ties as 1
+Sw <- sum(w, na.rm = TRUE)          # total tie strength Σw
+Mw <- if (length(w)) median(w, na.rm = TRUE) else NA_real_
+
+## Print the sentence
+cat(sprintf(
+  "Across %d residents and %d supervisors (%d nodes total), the bipartite network contains %d ties, ",
+  n_res, n_sup, n, Ecnt
+))
+cat(sprintf(
+  "with a total tie strength of %d and a median tie strength of %d.\n",
+  Sw, Mw
+))
+```
+
+#### Density (Bipartite, Unweighted)
+
+For a bipartite network with parts $R$ and $S$ (sizes $|R|=m$, $|S|=n$), the number of possible cross-mode ties is $m\,n$. The (binary) density is:
+
+$$
+D_{\text{bi}} \;=\; \frac{E}{m\,n},
+$$
+
+where $E$ is the number of observed $R\!\leftrightarrow\!S$ ties.
+
+#### Weighted Density (Bipartite)
+
+Treat missing ties as weight $0$ and average the cross-mode weights:
+
+$$
+D^{(w)}_{\text{bi}} \;=\; \frac{\sum_{u\in R}\sum_{v\in S} w_{uv}}{m\,n}.
+$$
+
+
+
+```{r echo=FALSE, results='asis', message=FALSE}
+
+types <- V(g_bi_und_fk)$type
+m <- sum(!types)   # |R| Residents
+n <- sum(types)    # |S| Supervisors
+denom <- m * n
+
+# --- Unweighted bipartite density (E / (|R||S|))
+Ecnt <- ecount(g_bi_und_fk)
+d_bi <- Ecnt / denom 
+
+# --- Weighted bipartite density: average cross-mode weight
+has_w <- "weight" %in% edge_attr_names(g_bi_und_fk)
+sum_w <- if (has_w) sum(E(g_bi_und_fk)$weight, na.rm = TRUE) else NA_real_
+d_bi_w <- if (has_w && denom > 0) sum_w / denom else NA_real_
+
+
+cat(sprintf("Unweighted bipartite density = %.4f  \n", d_bi))
+cat(sprintf("Weighted bipartite density = %.4f  \n", d_bi_w))
+```
+
+
+### Centralization (Unweighted)
+
+Centralization is a characteristics of the whole network (as opposed to the individual nodes). 
+
+```{r bipartite-centralization fk, results='asis', echo=FALSE}
+
+
+# ---- Degree centralization per side (binary) ----
+deg <- degree(g_bi_und_fk)         # undirected degree
+deg_R <- deg[!types]
+deg_S <- deg[ types]
+
+num_R <- sum(max(deg_R) - deg_R)               # Freeman numerator on R side
+den_R <- (m - 1) * n                           # two-mode star maximum on R side
+cen_R <- if (den_R > 0) num_R / den_R else NA
+
+num_S <- sum(max(deg_S) - deg_S)               # Freeman numerator on S side
+den_S <- (n - 1) * m                           # two-mode star maximum on S side
+cen_S <- if (den_S > 0) num_S / den_S else NA
+
+cat(sprintf("Degree centralization (Residents) = %.4f  \n", cen_R))
+cat(sprintf("Degree centralization (Supervisors) = %.4f  \n", cen_S))
+
+# ---- Betweenness centralization (overall, unweighted) ----
+cb <- centr_betw(g_bi_und_fk)$centralization
+cat(sprintf("Betweenness centralization (overall) = %.4f  \n", cb))
+```
+
+### Centrality 
+```{r echo=FALSE}
+# Unweighted degree (number of ties)
+deg <- degree(g_bi_und_fk)         
+V(g_bi_und_fk)$degree <- deg       
+
+# Strength (sum of incident weights) — compute or fill with NA of correct length
+if ("weight" %in% edge_attr_names(g_bi_und_fk)) {
+  V(g_bi_und_fk)$strength <- strength(g_bi_und_fk, weights = E(g_bi_und_fk)$weight)
+} else {
+  V(g_bi_und_fk)$strength <- rep(NA_real_, vcount(g_bi_und_fk))
+}
+
+types <- V(g_bi_und_fk)$type
+grp   <- ifelse(types, "Supervisor", "Resident")
+
+deg_res <- degree(g_bi_und_fk, v = V(g_bi_und_fk)[!types])
+deg_sup <- degree(g_bi_und_fk, v = V(g_bi_und_fk)[ types])
+
+# tapply(deg, grp, summary)        # quick summaries by group
+
+verts <- data.frame(
+  name     = V(g_bi_und_fk)$name,
+  group    = grp,
+  degree   = V(g_bi_und_fk)$degree,
+  strength = V(g_bi_und_fk)$strength
+)
+verts %>%
+  filter(group == "Resident") %>%
+  select(name, degree, strength) %>%
+  kbl(
+    col.names = c("Resident", "Out-degree", "Strength (sum of weights)"),
+    caption="Table 1.5: Degree centrality for each resident in the bipartite Factual Knowledge network") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T)
+
+verts %>%
+  filter(group == "Supervisor") %>%
+  select(name, degree, strength) %>%
+  kbl(
+    col.names = c("Supervisor", "In-degree", "Strength (sum of weights)"),
+    caption="Table 1.6: Degree centrality for each supervisor in the bipartite Factual Knowledge network") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T)
+```
+
+
+
+
+
+```{r echo=FALSE}
+# Identify groups
+types <- V(g_bi_und_fk)$type                 # TRUE = supervisors (columns), FALSE = residents (rows)
+res <- which(!types)
+sup <- which(types)
+
+# Build a spacious custom layout
+hspace <- 2.5   # horizontal spacing multiplier (increase to spread more)
+y_gap  <- 3.0   # vertical gap between layers
+
+x_res <- seq_along(res) * hspace
+x_sup <- seq_along(sup) * hspace
+y_res <- rep(y_gap, length(res))   # residents on top
+y_sup <- rep(2,     length(sup))   # supervisors bottom
+
+L <- matrix(NA_real_, nrow = vcount(g_bi_und_fk), ncol = 2)
+L[res,] <- cbind(x_res, y_res)
+L[sup,] <- cbind(x_sup, y_sup)
+
+# Styling: colors, label size, edge visibility
+V(g_bi_und_fk)$color <- net.attr$clr
+V(g_bi_und_fk)$shape <- net.attr$Shape
+V(g_bi_und_fk)$frame.color <- "black"
+
+# labels smaller & readable
+lab_cex <- 0.65
+lab_col <- "black"
+
+# edge width scaled by weight (or set a fixed width if unweighted)
+w <- E(g_bi_und_fk)$weight
+if (is.null(w)) w <- rep(1, ecount(g_bi_und_fk))
+mx <- max(w, na.rm = TRUE); if (!is.finite(mx) || mx == 0) mx <- 1
+E(g_bi_und_fk)$width <- 1 + 3 * (w / mx)                       # thicker edges
+E(g_bi_und_fk)$color <- grDevices::adjustcolor("grey20", 0.6)   # darker + semi-transparent
+E(g_bi_und_fk)$curved <- 0.08                                   # slight curvature reduces overlap
+
+# 5) Plot
+op <- par(mar = c(1,1,1,1))
+plot(
+  g_bi_und_fk, layout = L,
+  vertex.shape = V(g_bi_und_fk)$shape,
+  vertex.size = 4+ V(g_bi_und_fk)$degree * 2,
+  vertex.label = V(g_bi_und_fk)$name,
+  vertex.label.cex = lab_cex,
+  vertex.label.color = lab_col,
+  edge.arrow.size = 0.5,
+  asp = 0.4,               # wider aspect ratio
+  # main = "Figure 1.6: Resident–Supervisor (Bipartite) Network - Nodes' size adjusted based on degree"
+)
+title(main = "Figure 2.6: Resident–Supervisor (Bipartite) Factual Knowledge Network - Nodes' size adjusted based on degree", cex.main = 0.9)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("Supervisors", "PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("slateblue2", "red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+par(op)
+```
+
+```{r echo=FALSE}
+op <- par(mar = c(1,1,1,1))
+plot(
+  g_bi_und_fk, layout = L,
+  vertex.shape = V(g_bi_und_fk)$shape,
+  vertex.size = 3+ V(g_bi_und_fk)$strength * 0.5,
+  vertex.label = V(g_bi_und_fk)$name,
+  vertex.label.cex = lab_cex,
+  vertex.label.color = lab_col,
+  edge.arrow.size = 0.5,
+  asp = 0.4,               # wider aspect ratio
+)
+title(main = "Figure 2.7: Resident–Supervisor (Bipartite) Factual Knowledge Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("Supervisors", "PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("slateblue2", "red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+par(op)
+```
+
+
+
+# **3) Professionalism networks**  
+
+```{r echo=FALSE}
+# 1) Start from adjacency df
+adj_df <- all_sheets$`Professionalism`
+
+# 2) Make sure names match ids, then build a matrix
+
+id_check <- check_colnames_match_ids(adj_df)
+
+stopifnot(id_check$standard_id)
+
+# 3) matrix 
+
+A <- adj_df %>%
+  mutate(across(-1, as.numeric)) %>%         # ensure numeric
+  { mat <- as.matrix(.[-1]); rownames(mat) <- net.attr$id; mat }
+colnames(A) <- rownames(A)
+```
+
+
+```{r echo=FALSE}
+sup_idx <- grepl("^S", rownames(A))   # supervisors
+res_idx <- !sup_idx   # residents
+
+
+## 1) Peer network among residents only (R–R)
+A_RR <- A[res_idx, res_idx, drop = FALSE]
+
+g_peer_p <- graph_from_adjacency_matrix(
+  A_RR,
+  mode    = "directed",
+  weighted = TRUE,
+  diag     = FALSE
+)
+
+## 2) Resident–Supervisor network (bipartite) as a rectangular block (R rows, S cols)
+A_RS <- A[res_idx, sup_idx, drop = FALSE]
+
+# undirected bipartite graph via incidence matrix
+g_bi_und_p <- graph_from_biadjacency_matrix(A_RS, weighted = TRUE)
+```
+
+
+
+##  A) Professionalism network - Peer network
+```{r echo=FALSE, results='asis'}
+## Compute stats for Peer network
+n  <- vcount(g_peer_p)
+E  <- ecount(g_peer_p)                      
+d  <- edge_density(g_peer_p, loops = FALSE) # unweighted density
+w  <- E(g_peer_p)$weight
+Sw <- sum(w, na.rm = TRUE)                # total tie strength Σw
+Mw <- if (length(w)) median(w, na.rm = TRUE) else NA_real_
+
+## 3) Print the sentence
+cat(sprintf(
+  "Across %d nodes, the network contains %d ties, ",
+  n, E
+))
+cat(sprintf(
+  "with a total tie strength of %d and a median tie strength of %d.  \n",
+  Sw, Mw
+))
+```
+
+
+
+
+
+
+```{r echo=FALSE}
+# Peer network attributes 
+idx <- match(V(g_peer_p)$name, net.attr$id)
+V(g_peer_p)$clr <- net.attr$clr[idx]
+V(g_peer_p)$Level <- net.attr$Level[idx]
+V(g_peer_p)$Gender <- net.attr$Gender[idx]
+V(g_peer_p)$shape <- net.attr$Shape[idx]
+```
+
+
+```{r echo = FALSE, warning = FALSE, fig.width=10, fig.height=6, out.width='80%', fig.retina=1}
+#### set network layout
+# layout_with_graphopt(g_peer_p)
+L <- layout.fruchterman.reingold(g_peer_p)
+# edge weight for network plot
+w <- E(g_peer_p)$weight
+if (!is.null(w)) {
+  rng <- range(w, na.rm = TRUE)
+  E(g_peer_p)$width <- if (diff(rng) == 0) 2 else 1 + 3 * (w - rng[1]) / diff(rng)
+}
+#plot
+plot(g_peer_p,
+     layout = L,
+     vertex.color = V(g_peer_p)$clr,
+     vertex.shape = V(g_peer_p)$Shape,   
+     vertex.size = 20,
+     vertex.label = V(g_peer_p)$label,   # show labels explicitly
+     vertex.label.cex = 0.65,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     main = "Figure 3.1: Professionalism Peer Network Map",
+     margin = 0.1)
+
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+```
+
+
+
+#### Density (Directed)
+
+Assuming no self-loops, the (unweighted) density of a directed network is the proportion of possible ties that are present:
+
+$$
+D \;=\; \frac{E}{n(n-1)},
+$$
+
+where $n$ is the number of nodes and $E$ is the number of observed directed ties.
+
+#### Weighted Density (Directed)
+
+Following the “average tie strength across all possible dyads” idea, the **weighted** density treats missing ties as weight $0$ and averages weights over all ordered pairs:
+
+$$
+D_w \;=\; \frac{\sum_{i \ne j} w_{ij}}{n(n-1)}.
+$$
+
+
+```{r echo=FALSE, results='asis'}
+dens <- round(edge_density(g_peer_p, loops = FALSE), 4)
+
+n      <- vcount(g_peer_p)
+sum_w  <- sum(E(g_peer_p)$weight, na.rm = TRUE)
+wd_avg <- sum_w / (n * (n - 1))   # directed: avg weight per possible arc
+
+cat(sprintf("Density of the Professionalism Peer Network = %.4f  \n", dens))
+cat(sprintf("Weighted density (avg weight per possible arc) = %.3f  \n", wd_avg))
+```
+
+### Centralization (Unweighted)
+
+Centralization is a characteristics of the whole network (as opposed to the individual nodes). 
+
+```{r results='asis', echo = FALSE}
+n1 <- round(centr_degree(g_peer_p)$centralization,4)
+cat(paste0("Degree centralization = ", n1,"  \n")) 
+
+n1 <- round(centr_degree(g_peer_p, mode="in")$centralization,4)
+cat(paste0("Indegree centralization = ", n1,"  \n")) 
+
+n1 <- round(centr_degree(g_peer_p, mode="out")$centralization,4)
+cat(paste0("Outdegree centralization = ", n1,"  \n")) 
+
+n1 <- round(centr_betw(g_peer_p)$centralization,4)
+cat(paste0("Betweenness centralization = ", n1,"  \n")) 
+```
+
+```{r eval=FALSE, results='asis', echo=FALSE}
+
+# ---- Optional: set to your scale max (e.g., survey 0–5). Leave NA for unnormalized.
+max_w <- NA_real_   # e.g., set to 5 if weights are on 0..5
+
+# ---- Helper: Freeman-style centralization from a centrality vector
+centr_freeman <- function(x, denom = NULL) {
+  x <- as.numeric(x)
+  num <- sum(max(x, na.rm = TRUE) - x, na.rm = TRUE)
+  if (!is.null(denom) && is.finite(denom) && denom > 0) {
+    list(centralization = num / denom, numerator = num, denominator = denom)
+  } else {
+    list(centralization = NA_real_, numerator = num, denominator = NA_real_)
+  }
+}
+
+# ---- Helper: star denominators for strength-based centralization
+# mode: "all" (undirected-like), "out", or "in"
+star_strength_denom <- function(n, mode = c("all","out","in"), max_w) {
+  mode <- match.arg(mode)
+  if (!is.finite(max_w) || max_w <= 0) return(NA_real_)
+  if (mode == "all") {
+    # undirected star with weight = max_w on each spoke
+    # center strength = (n-1)*max_w; leaf strength = max_w
+    # sum(max - s_i) = (n-1)*( (n-1)*max_w - max_w ) = (n-1)*(n-2)*max_w
+    return( (n - 1) * (n - 2) * max_w )
+  } else {
+    # directed star (all out or all in): center has (n-1)*max_w, others 0
+    # sum(max - s_i) = (n-1) * ((n-1)*max_w) = (n-1)^2 * max_w
+    return( (n - 1)^2 * max_w )
+  }
+}
+
+# ---- Weighted degree centralizations (use strengths)
+n <- vcount(g_peer_p)
+
+s_all <- strength(g_peer_p, mode = "all", weights = E(g_peer_p)$weight)   # total strength
+s_in  <- strength(g_peer_p, mode = "in",  weights = E(g_peer_p)$weight)
+s_out <- strength(g_peer_p, mode = "out", weights = E(g_peer_p)$weight)
+
+den_all <- star_strength_denom(n, "all", max_w)
+den_in  <- star_strength_denom(n, "in",  max_w)
+den_out <- star_strength_denom(n, "out", max_w)
+
+c_all <- centr_freeman(s_all, den_all)
+c_in  <- centr_freeman(s_in,  den_in)
+c_out <- centr_freeman(s_out, den_out)
+
+# ---- Weighted betweenness centralization
+# Treat weights as strengths => convert to distances for shortest paths
+w <- E(g_peer_p)$weight
+if (any(!is.finite(w)) || any(w <= 0, na.rm = TRUE)) {
+  # guard: drop or replace nonpositive weights if they exist
+  w[w <= 0 | !is.finite(w)] <- NA_real_
+}
+E(g_peer_p)$dist <- 1 / w
+
+b_w <- betweenness(g_peer_p, directed = TRUE, weights = E(g_peer_p)$dist, normalized = FALSE)
+
+# Denominator via star graph (max centralization shape). Use the larger of in/out stars.
+star_out <- make_star(n, mode = "out", center = 1)
+E(star_out)$dist <- rep(1, ecount(star_out))
+b_star_out <- betweenness(star_out, directed = TRUE, weights = E(star_out)$dist, normalized = FALSE)
+den_b_out <- sum(max(b_star_out) - b_star_out)
+
+star_in <- make_star(n, mode = "in", center = 1)
+E(star_in)$dist <- rep(1, ecount(star_in))
+b_star_in <- betweenness(star_in, directed = TRUE, weights = E(star_in)$dist, normalized = FALSE)
+den_b_in <- sum(max(b_star_in) - b_star_in)
+
+den_b <- max(den_b_out, den_b_in)
+c_betw <- centr_freeman(b_w, denom = den_b)
+
+# ---- Print nicely
+fmt <- function(x) if (is.na(x)) "NA" else sprintf("%.4f", x)
+
+cat(paste0(
+  "**Weighted Degree centralization** (total strength): ",
+  fmt(c_all$centralization), "  \n",
+  if (is.finite(max_w)) paste0("_(normalized with max_w = ", max_w, ")_  \n") else "_(unnormalized; set max_w to normalize)_  \n\n"
+))
+
+cat(paste0(
+  "**Weighted In-degree centralization** (in-strength): ",
+  fmt(c_in$centralization), "  \n",
+  if (is.finite(max_w)) "" else "_(unnormalized)_  \n\n"
+))
+
+cat(paste0(
+  "**Weighted Out-degree centralization** (out-strength): ",
+  fmt(c_out$centralization), "  \n",
+  if (is.finite(max_w)) "" else "_(unnormalized)_  \n\n"
+))
+
+cat(paste0(
+  "**Weighted Betweenness centralization** (shortest paths via 1/weight): ",
+  fmt(c_betw$centralization), "  \n\n"
+))
+
+# (Optional) also show numerators if you want the raw values:
+# cat(sprintf("Numerators — strength(all): %.3f, in: %.3f, out: %.3f; betweenness: %.3f\n",
+#             c_all$numerator, c_in$numerator, c_out$numerator, c_betw$numerator))
+```
+
+
+### Reciprocity
+
+Reciprocity is again a whole network measure, and shows the likelihood of nodes to be mutually linked.
+
+```{r echo=FALSE, results = 'asis'}
+
+n <- round(reciprocity(g_peer_p),4)
+cat(paste0("Reciprocity of the the Professionalism Network = ", n,"  \n"))
+
+## --- Weighted reciprocity (Garlaschelli–Loffredo style) --------------
+# r_w = sum_{i<j} min(w_ij, w_ji) / sum_{i≠j} w_ij   (∈ [0,1])
+W <- as.matrix(as_adjacency_matrix(g_peer_p, attr = "weight", sparse = FALSE))
+W[is.na(W)] <- 0
+diag(W) <- 0
+num <- sum(pmin(W, t(W))[upper.tri(W)])  # mutual weight (no double-count)
+den <- sum(W)
+r_w <- if (den > 0) num / den else NA_real_
+
+cat(sprintf("Weighted reciprocity: %.3f  \n", r_w))
+
+```
+
+### Clique
+
+Cliques are a way to define subgroups based on social cohesion. A clique is a maximally complete subgroup, that is, a subgroup with all possible ties. In other words, a clique is a maximal complete subgraph of a given graph — i.e., a group of people where everybody is connected directly to everyone else. The word “maximal” means that no other nodes can be added to the clique without making it less connected.
+
+```{r results='asis', echo=FALSE, warning=FALSE}
+
+n1=clique.number(g_peer_p)
+cat(paste("Number of cliques = ", n1,"  \n"))  
+
+#cliques(g_peer_p, min=6)
+#maximal.cliques(g_peer_p,min=6)
+#largest.cliques(g_peer_p)
+```
+
+```{r echo=FALSE}
+# ### k-cor
+# # coreness
+# coreness <- coreness(g_peer_p, mode = "in")  # coreness(g_peer_p, mode = "all"/"in"/"out" if directed)
+# table(coreness); max(coreness)
+# 
+# 
+# # color by coreness with a palette (coreness often starts at 0)
+# pal <- colorRampPalette(c("lightyellow","orange","red"))(max(coreness) + 1)
+# V(g_peer_p)$color <- pal[coreness + 1]
+# 
+# # plot
+# op <- par(mar = rep(0, 4))
+# plot(g_peer_p, vertex.label.cex =0.7)  
+# par(op)
+
+```
+
+
+
+### Clusters  
+```{r results='asis', echo=FALSE, warning=FALSE}
+
+n1=no.clusters(g_peer_p)
+cat(paste0("Number of clusters = ", n1,"  \n"))  
+
+
+```  
+
+### Centrality 
+
+```{r eval=FALSE, echo=FALSE}
+# Centrality measures are characteristics of individual nodes and help us identify the most important or central person in the network. Below, you can find the definition of some centrality measures:
+# 
+# * Degree centrality: The number of ties a node has (sum of indegree and outdegree)  
+# 
+# * Indegree centrality: The number of nominations by others  
+# 
+# * Outdegree centrality: The number of nominating others  
+# 
+# * Closeness centrality: The inverse of the peripherality (i.e., the sum of a node's distances to all other nodes). The more central a node is, the lower its total distance to all other nodes. This measure shows us how long it will take to spread information from a specific node to all other nodes. I considered "all" types of paths (to and from the nodes) to calculate closeness.  
+# 
+# * Betweenness centrality: The number of times a node acts as a bridge along the shortest path between two other nodes. It shows us who has the control of the communication across the network.
+```
+
+
+
+```{r echo=FALSE}
+df.prom <- data.frame(
+  Degree = degree(g_peer_p),
+  Indegree = degree(g_peer_p,mode="in"),
+  Outdegree = degree(g_peer_p,mode="out"),
+  Closeness = round(closeness(g_peer_p, mode="all", weights = NA),4),
+  Betweenness = round(betweenness(g_peer_p, directed=T, weights=NA),4)
+)
+
+#Table
+kbl(df.prom, caption="Table 1.1: Centrality measures for each resident in the Professionalism network (unweighted)") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T) %>%
+  column_spec(1, bold = T, border_right = T)
+
+
+#edge_betweenness = edge_betweenness(g_peer_p, directed=T, weights=NA)
+```
+
+```{r echo=FALSE}
+###TABLE
+
+Degree3 <- df.prom %>% 
+    arrange(desc(Degree)) %>% 
+    head(n=3)
+Indegree3 <- df.prom %>% 
+    arrange(desc(Indegree)) %>% 
+    head(n=3)
+Outdegree3 <- df.prom %>% 
+    arrange(desc(Outdegree)) %>% 
+    head(n=3)
+Closeness3 <- df.prom %>% 
+    arrange(desc(Closeness)) %>% 
+    head(n=3)
+Betweenness3 <- df.prom %>% 
+    arrange(desc(Betweenness)) %>% 
+    head(n=3)
+
+df.prom5 <- data.frame(
+  Degree = Degree3 %>% row.names(),
+  Indegree = Indegree3 %>% row.names(),
+  Outdegree = Outdegree3 %>% row.names(),
+  Closeness = Closeness3 %>% row.names(),
+  Betweenness = Betweenness3 %>% row.names()
+  )
+kbl(df.prom5, caption="Table 1.2: Top three central nodes in the Professionalism network (unweighted)", align = "c") %>%
+  kable_paper(full_width = F, fixed_thead = T, position = "center")
+```
+
+
+```{r echo=FALSE}
+df.prom <- data.frame(
+  Degree = strength(g_peer_p, mode = "all",  weights = E(g_peer_p)$weight),
+  Indegree = strength(g_peer_p, mode = "in",  weights = E(g_peer_p)$weight),
+  Outdegree = strength(g_peer_p, mode = "out",  weights = E(g_peer_p)$weight),
+  Closeness = round(closeness(g_peer_p, mode="all", weights = E(g_peer_p)$weight),4),
+  Betweenness = round(betweenness(g_peer_p, directed=T, weights=E(g_peer_p)$weight),4)
+)
+
+
+#Table
+kbl(df.prom, caption="Table 1.3: Weighted Centrality measures for each resident in the Professionalism network") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T) %>%
+  column_spec(1, bold = T, border_right = T)
+
+
+#edge_betweenness = edge_betweenness(g_peer_p, directed=T, weights=NA)
+```
+
+```{r echo=FALSE}
+###TABLE
+
+Degree3 <- df.prom %>% 
+    arrange(desc(Degree)) %>% 
+    head(n=3)
+Indegree3 <- df.prom %>% 
+    arrange(desc(Indegree)) %>% 
+    head(n=3)
+Outdegree3 <- df.prom %>% 
+    arrange(desc(Outdegree)) %>% 
+    head(n=3)
+Closeness3 <- df.prom %>% 
+    arrange(desc(Closeness)) %>% 
+    head(n=3)
+Betweenness3 <- df.prom %>% 
+    arrange(desc(Betweenness)) %>% 
+    head(n=3)
+
+df.prom5 <- data.frame(
+  Degree = Degree3 %>% row.names(),
+  Indegree = Indegree3 %>% row.names(),
+  Outdegree = Outdegree3 %>% row.names(),
+  Closeness = Closeness3 %>% row.names(),
+  Betweenness = Betweenness3 %>% row.names()
+  )
+kbl(df.prom5, caption="Table 1.4: Top three central nodes in the Professionalism network (Weighted)", align = "c") %>%
+  kable_paper(full_width = F, fixed_thead = T, position = "center")
+```
+
+
+
+```{r echo=FALSE}
+
+V(g_peer_p)$degree <- degree(g_peer_p)
+
+V(g_peer_p)$degree.in <- degree(g_peer_p, mode="in")
+
+V(g_peer_p)$degree.out <- degree(g_peer_p, mode="out")
+
+V(g_peer_p)$closeness <- closeness(g_peer_p)
+
+V(g_peer_p)$betweenness <- betweenness(g_peer_p)
+
+
+## --- Weighted in/out degree (a.k.a. strength) ------------------------
+V(g_peer_p)$w_degree  <- strength(g_peer_p, mode = "all",  weights = E(g_peer_p)$weight)
+V(g_peer_p)$w_in  <- strength(g_peer_p, mode = "in",  weights = E(g_peer_p)$weight)
+V(g_peer_p)$w_out <- strength(g_peer_p, mode = "out", weights = E(g_peer_p)$weight)
+V(g_peer_p)$w_close <- round(closeness(g_peer_p, mode="all", weights = E(g_peer_p)$weight),4)
+V(g_peer_p)$w_btw <- round(betweenness(g_peer_p, directed=T, weights=E(g_peer_p)$weight),4)
+
+
+## _____________ vertex attributes
+# vertex_attr_names(g_peer_p)
+```
+
+```{r Table 3.5, echo=FALSE}
+
+# Helper to compute a robust numeric summary (handles NAs)
+summarize_vec <- function(x) {
+  c(
+    "Min."     = min(x, na.rm = TRUE),
+    "1st Qu."  = as.numeric(quantile(x, 0.25, na.rm = TRUE, names = FALSE)),
+    "Median"   = median(x, na.rm = TRUE),
+    "Mean"     = mean(x, na.rm = TRUE),
+    "3rd Qu."  = as.numeric(quantile(x, 0.75, na.rm = TRUE, names = FALSE)),
+    "Max."     = max(x, na.rm = TRUE)
+  )
+}
+
+# Compute the five centralities
+metrics <- list(
+  "Degree"      = degree(g_peer_p),
+  "In-degree"   = degree(g_peer_p, mode = "in"),
+  "Out-degree"  = degree(g_peer_p, mode = "out"),
+  "Closeness"   = closeness(g_peer_p),
+  "Betweenness" = betweenness(g_peer_p)
+)
+
+# Build a tidy summary table
+df <- sapply(metrics, summarize_vec) %>% 
+  as.data.frame() %>% 
+  tibble::rownames_to_column("Statistic")
+
+
+df %>%
+kbl(
+  caption = "Table 2.5: Centrality summaries (unweighted)",
+  booktabs = TRUE,
+  align = c("l", rep("r", ncol(df) - 1)),
+  digits = 3
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "condensed"),
+    full_width = FALSE,
+    fixed_thead = TRUE,
+    latex_options = c("hold_position")
+  ) %>%
+  column_spec(1, bold = TRUE)
+
+```
+
+
+
+
+
+
+
+
+
+
+
+```{r echo=FALSE, warning=FALSE}
+plot(g_peer_p,
+     vertex.color = V(g_peer_p)$clr,
+     vertex.size=(V(g_peer_p)$w_degree),
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold,
+     Layout = 1,
+     main=list("Figure 3.2: Professionalism Network: Nodes' size adjusted based on Weighted Degrees (Strength)",cex = 0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+
+plot(g_peer_p,
+     vertex.color = V(g_peer_p)$clr,
+     vertex.size=(V(g_peer_p)$w_in)*2,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold, 
+     Layout = 1,
+     main=list("Figure 3.3: Professionalism Network: Nodes' size adjusted based on Weighted Indegrees", cex=0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+
+plot(g_peer_p,
+     vertex.color = V(g_peer_p)$clr,
+     vertex.size=(V(g_peer_p)$w_out)*2,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold,
+     Layout = 1,
+     main=list("Figure 3.4: Professionalism Network: Nodes' size adjusted based on Weighted Outdegrees", cex=0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+E(g_peer_p)$dist <- 1 / E(g_peer_p)$weight
+cnet <- cluster_edge_betweenness(g_peer_p, weights = E(g_peer_p)$dist, directed = TRUE) # distances for betweenness
+plot(cnet,
+     g_peer_p,
+     vertex.size= log(V(g_peer_p)$degree)*7,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     main=list("Figure 3.5: Professionalism Network - Communities (connection of densely connected groups)", cex=0.8),
+     layout = layout.fruchterman.reingold,
+     displaylabels=TRUE)
+
+
+```
+
+## B) Professionalism network - Resident–Supervisor network (bipartite)
+
+```{r echo=FALSE}
+
+# mark types: FALSE for residents (rows), TRUE for supervisors (cols)
+V(g_bi_und_p)$type <- c(rep(FALSE, nrow(A_RS)), rep(TRUE, ncol(A_RS)))
+
+# Layout & quick plot
+# L_bi <- layout_as_bipartite(g_bi_und_p, types = V(g_bi_und_p)$type)
+# plot(g_bi_und_p, layout = L_bi,
+#      vertex.shape = ifelse(V(g_bi_und_p)$type, "square", "circle"),
+#      edge.width = scales::rescale(E(g_bi_und_p)$weight, to = c(1,5)))
+```
+
+```{r echo=FALSE, results='asis'}
+types <- V(g_bi_und_p)$type
+n_res <- sum(!types, na.rm = TRUE)   # |R|
+n_sup <- sum( types, na.rm = TRUE)   # |S|
+n     <- vcount(g_bi_und_p)            # total nodes
+Ecnt  <- ecount(g_bi_und_p)            
+
+# Unweighted bipartite density: E / (|R| * |S|)
+denom <- n_res * n_sup
+d_bip <- if (denom > 0) Ecnt / denom else NA_real_
+
+# Tie strengths (if your graph has edge weights)
+w  <- edge_attr(g_bi_und_p, "weight")
+if (is.null(w)) w <- rep(1, Ecnt)   # fallback: treat ties as 1
+Sw <- sum(w, na.rm = TRUE)          # total tie strength Σw
+Mw <- if (length(w)) median(w, na.rm = TRUE) else NA_real_
+
+## Print the sentence
+cat(sprintf(
+  "Across %d residents and %d supervisors (%d nodes total), the bipartite network contains %d ties, ",
+  n_res, n_sup, n, Ecnt
+))
+cat(sprintf(
+  "with a total tie strength of %d and a median tie strength of %d.\n",
+  Sw, Mw
+))
+```
+
+#### Density (Bipartite, Unweighted)
+
+For a bipartite network with parts $R$ and $S$ (sizes $|R|=m$, $|S|=n$), the number of possible cross-mode ties is $m\,n$. The (binary) density is:
+
+$$
+D_{\text{bi}} \;=\; \frac{E}{m\,n},
+$$
+
+where $E$ is the number of observed $R\!\leftrightarrow\!S$ ties.
+
+#### Weighted Density (Bipartite)
+
+Treat missing ties as weight $0$ and average the cross-mode weights:
+
+$$
+D^{(w)}_{\text{bi}} \;=\; \frac{\sum_{u\in R}\sum_{v\in S} w_{uv}}{m\,n}.
+$$
+
+
+
+```{r echo=FALSE, results='asis', message=FALSE}
+
+types <- V(g_bi_und_p)$type
+m <- sum(!types)   # |R| Residents
+n <- sum(types)    # |S| Supervisors
+denom <- m * n
+
+# --- Unweighted bipartite density (E / (|R||S|))
+Ecnt <- ecount(g_bi_und_p)
+d_bi <- Ecnt / denom 
+
+# --- Weighted bipartite density: average cross-mode weight
+has_w <- "weight" %in% edge_attr_names(g_bi_und_p)
+sum_w <- if (has_w) sum(E(g_bi_und_p)$weight, na.rm = TRUE) else NA_real_
+d_bi_w <- if (has_w && denom > 0) sum_w / denom else NA_real_
+
+
+cat(sprintf("Unweighted bipartite density = %.4f  \n", d_bi))
+cat(sprintf("Weighted bipartite density = %.4f  \n", d_bi_w))
+```
+
+
+### Centralization (Unweighted)
+
+Centralization is a characteristics of the whole network (as opposed to the individual nodes). 
+
+```{r bipartite-centralization p, results='asis', echo=FALSE}
+
+
+# ---- Degree centralization per side (binary) ----
+deg <- degree(g_bi_und_p)         # undirected degree
+deg_R <- deg[!types]
+deg_S <- deg[ types]
+
+num_R <- sum(max(deg_R) - deg_R)               # Freeman numerator on R side
+den_R <- (m - 1) * n                           # two-mode star maximum on R side
+cen_R <- if (den_R > 0) num_R / den_R else NA
+
+num_S <- sum(max(deg_S) - deg_S)               # Freeman numerator on S side
+den_S <- (n - 1) * m                           # two-mode star maximum on S side
+cen_S <- if (den_S > 0) num_S / den_S else NA
+
+cat(sprintf("Degree centralization (Residents) = %.4f  \n", cen_R))
+cat(sprintf("Degree centralization (Supervisors) = %.4f  \n", cen_S))
+
+# ---- Betweenness centralization (overall, unweighted) ----
+cb <- centr_betw(g_bi_und_p)$centralization
+cat(sprintf("Betweenness centralization (overall) = %.4f  \n", cb))
+```
+
+### Centrality 
+```{r echo=FALSE}
+# Unweighted degree (number of ties)
+deg <- degree(g_bi_und_p)         
+V(g_bi_und_p)$degree <- deg       
+
+# Strength (sum of incident weights) — compute or fill with NA of correct length
+if ("weight" %in% edge_attr_names(g_bi_und_p)) {
+  V(g_bi_und_p)$strength <- strength(g_bi_und_p, weights = E(g_bi_und_p)$weight)
+} else {
+  V(g_bi_und_p)$strength <- rep(NA_real_, vcount(g_bi_und_p))
+}
+
+types <- V(g_bi_und_p)$type
+grp   <- ifelse(types, "Supervisor", "Resident")
+
+deg_res <- degree(g_bi_und_p, v = V(g_bi_und_p)[!types])
+deg_sup <- degree(g_bi_und_p, v = V(g_bi_und_p)[ types])
+
+# tapply(deg, grp, summary)        # quick summaries by group
+
+verts <- data.frame(
+  name     = V(g_bi_und_p)$name,
+  group    = grp,
+  degree   = V(g_bi_und_p)$degree,
+  strength = V(g_bi_und_p)$strength
+)
+verts %>%
+  filter(group == "Resident") %>%
+  select(name, degree, strength) %>%
+  kbl(
+    col.names = c("Resident", "Out-degree", "Strength (sum of weights)"),
+    caption="Table 1.5: Degree centrality for each resident in the bipartite Professionalism network") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T)
+
+verts %>%
+  filter(group == "Supervisor") %>%
+  select(name, degree, strength) %>%
+  kbl(
+    col.names = c("Supervisor", "In-degree", "Strength (sum of weights)"),
+    caption="Table 1.6: Degree centrality for each supervisor in the bipartite Professionalism network") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T)
+```
+
+
+
+
+```{r echo=FALSE}
+# Identify groups
+types <- V(g_bi_und_p)$type                 # TRUE = supervisors (columns), FALSE = residents (rows)
+res <- which(!types)
+sup <- which(types)
+
+# Build a spacious custom layout
+hspace <- 2.5   # horizontal spacing multiplier (increase to spread more)
+y_gap  <- 3.0   # vertical gap between layers
+
+x_res <- seq_along(res) * hspace
+x_sup <- seq_along(sup) * hspace
+y_res <- rep(y_gap, length(res))   # residents on top
+y_sup <- rep(2,     length(sup))   # supervisors bottom
+
+L <- matrix(NA_real_, nrow = vcount(g_bi_und_p), ncol = 2)
+L[res,] <- cbind(x_res, y_res)
+L[sup,] <- cbind(x_sup, y_sup)
+
+# Styling: colors, label size, edge visibility
+V(g_bi_und_p)$color <- net.attr$clr
+V(g_bi_und_p)$shape <- net.attr$Shape
+V(g_bi_und_p)$frame.color <- "black"
+
+# labels smaller & readable
+lab_cex <- 0.65
+lab_col <- "black"
+
+# edge width scaled by weight (or set a fixed width if unweighted)
+w <- E(g_bi_und_p)$weight
+if (is.null(w)) w <- rep(1, ecount(g_bi_und_p))
+mx <- max(w, na.rm = TRUE); if (!is.finite(mx) || mx == 0) mx <- 1
+E(g_bi_und_p)$width <- 1 + 3 * (w / mx)                       # thicker edges
+E(g_bi_und_p)$color <- grDevices::adjustcolor("grey20", 0.6)   # darker + semi-transparent
+E(g_bi_und_p)$curved <- 0.08                                   # slight curvature reduces overlap
+
+# 5) Plot
+op <- par(mar = c(1,1,1,1))
+plot(
+  g_bi_und_p, layout = L,
+  vertex.shape = V(g_bi_und_p)$shape,
+  vertex.size = 4+ V(g_bi_und_p)$degree * 2,
+  vertex.label = V(g_bi_und_p)$name,
+  vertex.label.cex = lab_cex,
+  vertex.label.color = lab_col,
+  edge.arrow.size = 0.5,
+  asp = 0.4,
+)
+title(main = "Figure 3.6: Resident–Supervisor (Bipartite) Network - Nodes' size adjusted based on degree", cex.main = 0.9)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("Supervisors", "PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("slateblue2", "red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+par(op)
+```
+
+```{r echo=FALSE}
+op <- par(mar = c(1,1,1,1))
+plot(
+  g_bi_und_p, layout = L,
+  vertex.shape = V(g_bi_und_p)$shape,
+  vertex.size = 3+ V(g_bi_und_p)$strength * 0.5,
+  vertex.label = V(g_bi_und_p)$name,
+  vertex.label.cex = lab_cex,
+  vertex.label.color = lab_col,
+  edge.arrow.size = 0.5,
+  asp = 0.4,               # wider aspect ratio
+ )
+title(main = "Figure 3.7: Resident–Supervisor (Bipartite) Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("Supervisors", "PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("slateblue2", "red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+par(op)
+```
+
+
+
+# **4) Overall networks**  
+
+```{r echo=FALSE}
+# 1) Start from adjacency df
+adj_df <- all_sheets$`Overall`
+
+# 2) Make sure names match ids, then build a matrix
+
+id_check <- check_colnames_match_ids(adj_df)
+
+stopifnot(id_check$standard_id)
+
+# 3) matrix 
+
+A <- adj_df %>%
+  mutate(across(-1, as.numeric)) %>%         # ensure numeric
+  { mat <- as.matrix(.[-1]); rownames(mat) <- net.attr$id; mat }
+colnames(A) <- rownames(A)
+```
+
+
+```{r echo=FALSE}
+sup_idx <- grepl("^S", rownames(A))   # supervisors
+res_idx <- !sup_idx   # residents
+
+
+## 1) Peer network among residents only (R–R)
+A_RR <- A[res_idx, res_idx, drop = FALSE]
+
+g_peer_all <- graph_from_adjacency_matrix(
+  A_RR,
+  mode    = "directed",
+  weighted = TRUE,
+  diag     = FALSE
+)
+
+```
+
+
+
+##  A) Overall network - Peer network
+```{r echo=FALSE, results='asis'}
+## Compute stats for Peer network
+n  <- vcount(g_peer_all)
+E  <- ecount(g_peer_all)                      
+d  <- edge_density(g_peer_all, loops = FALSE) # unweighted density
+w  <- E(g_peer_all)$weight
+Sw <- sum(w, na.rm = TRUE)                # total tie strength Σw
+Mw <- if (length(w)) median(w, na.rm = TRUE) else NA_real_
+
+## 3) Print the sentence
+cat(sprintf(
+  "Across %d nodes, the network contains %d ties, ",
+  n, E
+))
+cat(sprintf(
+  "with a total tie strength of %d and a median tie strength of %d.  \n",
+  Sw, Mw
+))
+```
+
+
+
+
+
+
+```{r echo=FALSE}
+# Peer network attributes 
+idx <- match(V(g_peer_all)$name, net.attr$id)
+V(g_peer_all)$clr <- net.attr$clr[idx]
+V(g_peer_all)$Level <- net.attr$Level[idx]
+V(g_peer_all)$Gender <- net.attr$Gender[idx]
+V(g_peer_all)$shape <- net.attr$Shape[idx]
+```
+
+
+```{r echo = FALSE, warning = FALSE, fig.width=10, fig.height=6, out.width='80%', fig.retina=1}
+#### set network layout
+# layout_with_graphopt(g_peer_all)
+L <- layout.fruchterman.reingold(g_peer_all)
+# edge weight for network plot
+w <- E(g_peer_all)$weight
+if (!is.null(w)) {
+  rng <- range(w, na.rm = TRUE)
+  E(g_peer_all)$width <- if (diff(rng) == 0) 2 else 1 + 3 * (w - rng[1]) / diff(rng)
+}
+#plot
+plot(g_peer_all,
+     layout = L,
+     vertex.color = V(g_peer_all)$clr,
+     vertex.shape = V(g_peer_all)$Shape,   
+     vertex.size = 20,
+     vertex.label = V(g_peer_all)$label,   # show labels explicitly
+     vertex.label.cex = 0.65,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     main = "Figure 4.1: Overall Peer Network Map",
+     margin = 0.1)
+
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+```
+
+
+
+#### Density (Directed)
+
+Assuming no self-loops, the (unweighted) density of a directed network is the proportion of possible ties that are present:
+
+$$
+D \;=\; \frac{E}{n(n-1)},
+$$
+
+where $n$ is the number of nodes and $E$ is the number of observed directed ties.
+
+#### Weighted Density (Directed)
+
+Following the “average tie strength across all possible dyads” idea, the **weighted** density treats missing ties as weight $0$ and averages weights over all ordered pairs:
+
+$$
+D_w \;=\; \frac{\sum_{i \ne j} w_{ij}}{n(n-1)}.
+$$
+
+
+```{r echo=FALSE, results='asis'}
+dens <- round(edge_density(g_peer_all, loops = FALSE), 4)
+
+n      <- vcount(g_peer_all)
+sum_w  <- sum(E(g_peer_all)$weight, na.rm = TRUE)
+wd_avg <- sum_w / (n * (n - 1))   # directed: avg weight per possible arc
+
+cat(sprintf("Density of the Overall Peer Network = %.4f  \n", dens))
+cat(sprintf("Weighted density (avg weight per possible arc) = %.3f  \n", wd_avg))
+```
+
+### Centralization (Unweighted)
+
+Centralization is a characteristics of the whole network (as opposed to the individual nodes). 
+
+```{r results='asis', echo = FALSE}
+n1 <- round(centr_degree(g_peer_all)$centralization,4)
+cat(paste0("Degree centralization = ", n1,"  \n")) 
+
+n1 <- round(centr_degree(g_peer_all, mode="in")$centralization,4)
+cat(paste0("Indegree centralization = ", n1,"  \n")) 
+
+n1 <- round(centr_degree(g_peer_all, mode="out")$centralization,4)
+cat(paste0("Outdegree centralization = ", n1,"  \n")) 
+
+n1 <- round(centr_betw(g_peer_all)$centralization,4)
+cat(paste0("Betweenness centralization = ", n1,"  \n")) 
+```
+
+```{r eval=FALSE, results='asis', echo=FALSE}
+
+# ---- Optional: set to your scale max (e.g., survey 0–5). Leave NA for unnormalized.
+max_w <- NA_real_   # e.g., set to 5 if weights are on 0..5
+
+# ---- Helper: Freeman-style centralization from a centrality vector
+centr_freeman <- function(x, denom = NULL) {
+  x <- as.numeric(x)
+  num <- sum(max(x, na.rm = TRUE) - x, na.rm = TRUE)
+  if (!is.null(denom) && is.finite(denom) && denom > 0) {
+    list(centralization = num / denom, numerator = num, denominator = denom)
+  } else {
+    list(centralization = NA_real_, numerator = num, denominator = NA_real_)
+  }
+}
+
+# ---- Helper: star denominators for strength-based centralization
+# mode: "all" (undirected-like), "out", or "in"
+star_strength_denom <- function(n, mode = c("all","out","in"), max_w) {
+  mode <- match.arg(mode)
+  if (!is.finite(max_w) || max_w <= 0) return(NA_real_)
+  if (mode == "all") {
+    # undirected star with weight = max_w on each spoke
+    # center strength = (n-1)*max_w; leaf strength = max_w
+    # sum(max - s_i) = (n-1)*( (n-1)*max_w - max_w ) = (n-1)*(n-2)*max_w
+    return( (n - 1) * (n - 2) * max_w )
+  } else {
+    # directed star (all out or all in): center has (n-1)*max_w, others 0
+    # sum(max - s_i) = (n-1) * ((n-1)*max_w) = (n-1)^2 * max_w
+    return( (n - 1)^2 * max_w )
+  }
+}
+
+# ---- Weighted degree centralizations (use strengths)
+n <- vcount(g_peer_all)
+
+s_all <- strength(g_peer_all, mode = "all", weights = E(g_peer_all)$weight)   # total strength
+s_in  <- strength(g_peer_all, mode = "in",  weights = E(g_peer_all)$weight)
+s_out <- strength(g_peer_all, mode = "out", weights = E(g_peer_all)$weight)
+
+den_all <- star_strength_denom(n, "all", max_w)
+den_in  <- star_strength_denom(n, "in",  max_w)
+den_out <- star_strength_denom(n, "out", max_w)
+
+c_all <- centr_freeman(s_all, den_all)
+c_in  <- centr_freeman(s_in,  den_in)
+c_out <- centr_freeman(s_out, den_out)
+
+# ---- Weighted betweenness centralization
+# Treat weights as strengths => convert to distances for shortest paths
+w <- E(g_peer_all)$weight
+if (any(!is.finite(w)) || any(w <= 0, na.rm = TRUE)) {
+  # guard: drop or replace nonpositive weights if they exist
+  w[w <= 0 | !is.finite(w)] <- NA_real_
+}
+E(g_peer_all)$dist <- 1 / w
+
+b_w <- betweenness(g_peer_all, directed = TRUE, weights = E(g_peer_all)$dist, normalized = FALSE)
+
+# Denominator via star graph (max centralization shape). Use the larger of in/out stars.
+star_out <- make_star(n, mode = "out", center = 1)
+E(star_out)$dist <- rep(1, ecount(star_out))
+b_star_out <- betweenness(star_out, directed = TRUE, weights = E(star_out)$dist, normalized = FALSE)
+den_b_out <- sum(max(b_star_out) - b_star_out)
+
+star_in <- make_star(n, mode = "in", center = 1)
+E(star_in)$dist <- rep(1, ecount(star_in))
+b_star_in <- betweenness(star_in, directed = TRUE, weights = E(star_in)$dist, normalized = FALSE)
+den_b_in <- sum(max(b_star_in) - b_star_in)
+
+den_b <- max(den_b_out, den_b_in)
+c_betw <- centr_freeman(b_w, denom = den_b)
+
+# ---- Print nicely
+fmt <- function(x) if (is.na(x)) "NA" else sprintf("%.4f", x)
+
+cat(paste0(
+  "**Weighted Degree centralization** (total strength): ",
+  fmt(c_all$centralization), "  \n",
+  if (is.finite(max_w)) paste0("_(normalized with max_w = ", max_w, ")_  \n") else "_(unnormalized; set max_w to normalize)_  \n\n"
+))
+
+cat(paste0(
+  "**Weighted In-degree centralization** (in-strength): ",
+  fmt(c_in$centralization), "  \n",
+  if (is.finite(max_w)) "" else "_(unnormalized)_  \n\n"
+))
+
+cat(paste0(
+  "**Weighted Out-degree centralization** (out-strength): ",
+  fmt(c_out$centralization), "  \n",
+  if (is.finite(max_w)) "" else "_(unnormalized)_  \n\n"
+))
+
+cat(paste0(
+  "**Weighted Betweenness centralization** (shortest paths via 1/weight): ",
+  fmt(c_betw$centralization), "  \n\n"
+))
+
+# (Optional) also show numerators if you want the raw values:
+# cat(sprintf("Numerators — strength(all): %.3f, in: %.3f, out: %.3f; betweenness: %.3f\n",
+#             c_all$numerator, c_in$numerator, c_out$numerator, c_betw$numerator))
+```
+
+
+### Reciprocity
+
+Reciprocity is again a whole network measure, and shows the likelihood of nodes to be mutually linked.
+
+```{r echo=FALSE, results = 'asis'}
+
+n <- round(reciprocity(g_peer_all),4)
+cat(paste0("Reciprocity of the the Overall Network = ", n,"  \n"))
+
+## --- Weighted reciprocity (Garlaschelli–Loffredo style) --------------
+# r_w = sum_{i<j} min(w_ij, w_ji) / sum_{i≠j} w_ij   (∈ [0,1])
+W <- as.matrix(as_adjacency_matrix(g_peer_all, attr = "weight", sparse = FALSE))
+W[is.na(W)] <- 0
+diag(W) <- 0
+num <- sum(pmin(W, t(W))[upper.tri(W)])  # mutual weight (no double-count)
+den <- sum(W)
+r_w <- if (den > 0) num / den else NA_real_
+
+cat(sprintf("Weighted reciprocity: %.3f  \n", r_w))
+
+```
+
+### Clique
+
+Cliques are a way to define subgroups based on social cohesion. A clique is a maximally complete subgroup, that is, a subgroup with all possible ties. In other words, a clique is a maximal complete subgraph of a given graph — i.e., a group of people where everybody is connected directly to everyone else. The word “maximal” means that no other nodes can be added to the clique without making it less connected.
+
+```{r results='asis', echo=FALSE, warning=FALSE}
+
+n1=clique.number(g_peer_all)
+cat(paste("Number of cliques = ", n1,"  \n"))  
+
+#cliques(g_peer_all, min=6)
+#maximal.cliques(g_peer_all,min=6)
+#largest.cliques(g_peer_all)
+```
+
+```{r echo=FALSE}
+# ### k-cor
+# # coreness
+# coreness <- coreness(g_peer_all, mode = "in")  # coreness(g_peer_all, mode = "all"/"in"/"out" if directed)
+# table(coreness); max(coreness)
+# 
+# 
+# # color by coreness with a palette (coreness often starts at 0)
+# pal <- colorRampPalette(c("lightyellow","orange","red"))(max(coreness) + 1)
+# V(g_peer_all)$color <- pal[coreness + 1]
+# 
+# # plot
+# op <- par(mar = rep(0, 4))
+# plot(g_peer_all, vertex.label.cex =0.7)  
+# par(op)
+
+```
+
+
+
+### Clusters  
+```{r results='asis', echo=FALSE, warning=FALSE}
+
+n1=no.clusters(g_peer_all)
+cat(paste0("Number of clusters = ", n1,"  \n"))  
+
+
+```  
+
+### Centrality 
+
+```{r eval=FALSE, echo=FALSE}
+# Centrality measures are characteristics of individual nodes and help us identify the most important or central person in the network. Below, you can find the definition of some centrality measures:
+# 
+# * Degree centrality: The number of ties a node has (sum of indegree and outdegree)  
+# 
+# * Indegree centrality: The number of nominations by others  
+# 
+# * Outdegree centrality: The number of nominating others  
+# 
+# * Closeness centrality: The inverse of the peripherality (i.e., the sum of a node's distances to all other nodes). The more central a node is, the lower its total distance to all other nodes. This measure shows us how long it will take to spread information from a specific node to all other nodes. I considered "all" types of paths (to and from the nodes) to calculate closeness.  
+# 
+# * Betweenness centrality: The number of times a node acts as a bridge along the shortest path between two other nodes. It shows us who has the control of the communication across the network.
+```
+
+
+
+```{r echo=FALSE}
+df.prom <- data.frame(
+  Degree = degree(g_peer_all),
+  Indegree = degree(g_peer_all,mode="in"),
+  Outdegree = degree(g_peer_all,mode="out"),
+  Closeness = round(closeness(g_peer_all, mode="all", weights = NA),4),
+  Betweenness = round(betweenness(g_peer_all, directed=T, weights=NA),4)
+)
+
+#Table
+kbl(df.prom, caption="Table 4.1: Centrality measures for each resident in the Overall network (unweighted)") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T) %>%
+  column_spec(1, bold = T, border_right = T)
+
+
+#edge_betweenness = edge_betweenness(g_peer_all, directed=T, weights=NA)
+```
+
+```{r echo=FALSE}
+###TABLE
+
+Degree3 <- df.prom %>% 
+    arrange(desc(Degree)) %>% 
+    head(n=3)
+Indegree3 <- df.prom %>% 
+    arrange(desc(Indegree)) %>% 
+    head(n=3)
+Outdegree3 <- df.prom %>% 
+    arrange(desc(Outdegree)) %>% 
+    head(n=3)
+Closeness3 <- df.prom %>% 
+    arrange(desc(Closeness)) %>% 
+    head(n=3)
+Betweenness3 <- df.prom %>% 
+    arrange(desc(Betweenness)) %>% 
+    head(n=3)
+
+df.prom5 <- data.frame(
+  Degree = Degree3 %>% row.names(),
+  Indegree = Indegree3 %>% row.names(),
+  Outdegree = Outdegree3 %>% row.names(),
+  Closeness = Closeness3 %>% row.names(),
+  Betweenness = Betweenness3 %>% row.names()
+  )
+kbl(df.prom5, caption="Table 4.2: Top three central nodes in the Overall network (unweighted)", align = "c") %>%
+  kable_paper(full_width = F, fixed_thead = T, position = "center")
+```
+
+
+```{r echo=FALSE}
+df.prom <- data.frame(
+  Degree = strength(g_peer_all, mode = "all",  weights = E(g_peer_all)$weight),
+  Indegree = strength(g_peer_all, mode = "in",  weights = E(g_peer_all)$weight),
+  Outdegree = strength(g_peer_all, mode = "out",  weights = E(g_peer_all)$weight),
+  Closeness = round(closeness(g_peer_all, mode="all", weights = E(g_peer_all)$weight),4),
+  Betweenness = round(betweenness(g_peer_all, directed=T, weights=E(g_peer_all)$weight),4)
+)
+
+
+#Table
+kbl(df.prom, caption="Table 4.3: Weighted Centrality measures for each resident in the Overall network") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T) %>%
+  column_spec(1, bold = T, border_right = T)
+
+
+#edge_betweenness = edge_betweenness(g_peer_all, directed=T, weights=NA)
+```
+
+```{r echo=FALSE}
+###TABLE
+
+Degree3 <- df.prom %>% 
+    arrange(desc(Degree)) %>% 
+    head(n=3)
+Indegree3 <- df.prom %>% 
+    arrange(desc(Indegree)) %>% 
+    head(n=3)
+Outdegree3 <- df.prom %>% 
+    arrange(desc(Outdegree)) %>% 
+    head(n=3)
+Closeness3 <- df.prom %>% 
+    arrange(desc(Closeness)) %>% 
+    head(n=3)
+Betweenness3 <- df.prom %>% 
+    arrange(desc(Betweenness)) %>% 
+    head(n=3)
+
+df.prom5 <- data.frame(
+  Degree = Degree3 %>% row.names(),
+  Indegree = Indegree3 %>% row.names(),
+  Outdegree = Outdegree3 %>% row.names(),
+  Closeness = Closeness3 %>% row.names(),
+  Betweenness = Betweenness3 %>% row.names()
+  )
+kbl(df.prom5, caption="Table 4.4: Top three central nodes in the Overall network (Weighted)", align = "c") %>%
+  kable_paper(full_width = F, fixed_thead = T, position = "center")
+```
+
+
+
+```{r echo=FALSE}
+
+V(g_peer_all)$degree <- degree(g_peer_all)
+
+V(g_peer_all)$degree.in <- degree(g_peer_all, mode="in")
+
+V(g_peer_all)$degree.out <- degree(g_peer_all, mode="out")
+
+V(g_peer_all)$closeness <- closeness(g_peer_all)
+
+V(g_peer_all)$betweenness <- betweenness(g_peer_all)
+
+
+## --- Weighted in/out degree (a.k.a. strength) ------------------------
+V(g_peer_all)$w_degree  <- strength(g_peer_all, mode = "all",  weights = E(g_peer_all)$weight)
+V(g_peer_all)$w_in  <- strength(g_peer_all, mode = "in",  weights = E(g_peer_all)$weight)
+V(g_peer_all)$w_out <- strength(g_peer_all, mode = "out", weights = E(g_peer_all)$weight)
+V(g_peer_all)$w_close <- round(closeness(g_peer_all, mode="all", weights = E(g_peer_all)$weight),4)
+V(g_peer_all)$w_btw <- round(betweenness(g_peer_all, directed=T, weights=E(g_peer_all)$weight),4)
+
+
+## _____________ vertex attributes
+# vertex_attr_names(g_peer_all)
+```
+
+```{r Table 4.5, echo=FALSE}
+
+# Helper to compute a robust numeric summary (handles NAs)
+summarize_vec <- function(x) {
+  c(
+    "Min."     = min(x, na.rm = TRUE),
+    "1st Qu."  = as.numeric(quantile(x, 0.25, na.rm = TRUE, names = FALSE)),
+    "Median"   = median(x, na.rm = TRUE),
+    "Mean"     = mean(x, na.rm = TRUE),
+    "3rd Qu."  = as.numeric(quantile(x, 0.75, na.rm = TRUE, names = FALSE)),
+    "Max."     = max(x, na.rm = TRUE)
+  )
+}
+
+# Compute the five centralities
+metrics <- list(
+  "Degree"      = degree(g_peer_all),
+  "In-degree"   = degree(g_peer_all, mode = "in"),
+  "Out-degree"  = degree(g_peer_all, mode = "out"),
+  "Closeness"   = closeness(g_peer_all),
+  "Betweenness" = betweenness(g_peer_all)
+)
+
+# Build a tidy summary table
+df <- sapply(metrics, summarize_vec) |> 
+  as.data.frame() |> 
+  tibble::rownames_to_column("Statistic")
+
+df %>%
+kbl(
+  caption = "Table 4.5: Centrality summaries (unweighted)",
+  booktabs = TRUE,
+  align = c("l", rep("r", ncol(df) - 1)),
+  digits = 3
+) %>%
+  kable_styling(
+    bootstrap_options = c("striped", "condensed"),
+    full_width = FALSE,
+    fixed_thead = TRUE,
+    latex_options = c("hold_position")
+  ) %>%
+  column_spec(1, bold = TRUE)
+
+```
+
+
+
+
+
+```{r echo=FALSE, warning=FALSE}
+plot(g_peer_all,
+     vertex.color = V(g_peer_all)$clr,
+     vertex.size=(V(g_peer_all)$w_degree)* 0.7,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold,
+     Layout = 1,
+     main=list("Figure 4.2: Overall Network: Nodes' size adjusted based on Weighted Degrees (Strength)",cex = 0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+
+plot(g_peer_all,
+     vertex.color = V(g_peer_all)$clr,
+     vertex.size=(V(g_peer_all)$w_in),
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold, 
+     Layout = 1,
+     main=list("Figure 4.3: Overall Network: Nodes' size adjusted based on Weighted Indegrees", cex=0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+
+plot(g_peer_all,
+     vertex.color = V(g_peer_all)$clr,
+     vertex.size=(V(g_peer_all)$w_out),
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = layout.fruchterman.reingold,
+     Layout = 1,
+     main=list("Figure 4.4: Overall Network: Nodes' size adjusted based on Weighted Outdegrees", cex=0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+```
+
+
+```{r echo=FALSE, warning=FALSE}
+E(g_peer_all)$dist <- 1 / E(g_peer_all)$weight
+cnet <- cluster_edge_betweenness(g_peer_all, weights = E(g_peer_all)$dist, directed = TRUE) # distances for betweenness
+plot(cnet,
+     g_peer_all,
+     vertex.size= log(V(g_peer_all)$degree)*7,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     main=list("Figure 4.5: Overall Network - Communities (connection of densely connected groups)", cex=0.8),
+     layout = layout.fruchterman.reingold,
+     displaylabels=TRUE)
+
+
+```
+
+## B) Overall network - Resident–Supervisor network (bipartite)
+
+```{r echo=FALSE}
+
+## 2) Resident–Supervisor network (bipartite) as a rectangular block (R rows, S cols)
+A_RS <- A[res_idx, sup_idx, drop = FALSE]
+
+# undirected bipartite graph via incidence matrix
+g_bi_und_all <- graph_from_biadjacency_matrix(A_RS, weighted = TRUE)
+
+# mark types: FALSE for residents (rows), TRUE for supervisors (cols)
+V(g_bi_und_all)$type <- c(rep(FALSE, nrow(A_RS)), rep(TRUE, ncol(A_RS)))
+
+# Layout & quick plot
+# L_bi <- layout_as_bipartite(g_bi_und_all, types = V(g_bi_und_all)$type)
+# plot(g_bi_und_all, layout = L_bi,
+#      vertex.shape = ifelse(V(g_bi_und_all)$type, "square", "circle"),
+#      edge.width = scales::rescale(E(g_bi_und_all)$weight, to = c(1,5)))
+```
+
+```{r echo=FALSE, results='asis'}
+types <- V(g_bi_und_all)$type
+n_res <- sum(!types, na.rm = TRUE)   # |R|
+n_sup <- sum( types, na.rm = TRUE)   # |S|
+n     <- vcount(g_bi_und_all)            # total nodes
+Ecnt  <- ecount(g_bi_und_all)            
+
+# Unweighted bipartite density: E / (|R| * |S|)
+denom <- n_res * n_sup
+d_bip <- if (denom > 0) Ecnt / denom else NA_real_
+
+# Tie strengths (if your graph has edge weights)
+w  <- edge_attr(g_bi_und_all, "weight")
+if (is.null(w)) w <- rep(1, Ecnt)   # fallback: treat ties as 1
+Sw <- sum(w, na.rm = TRUE)          # total tie strength Σw
+Mw <- if (length(w)) median(w, na.rm = TRUE) else NA_real_
+
+## Print the sentence
+cat(sprintf(
+  "Across %d residents and %d supervisors (%d nodes total), the bipartite network contains %d ties, ",
+  n_res, n_sup, n, Ecnt
+))
+cat(sprintf(
+  "with a total tie strength of %d and a median tie strength of %d.\n",
+  Sw, Mw
+))
+```
+
+#### Density (Bipartite, Unweighted)
+
+For a bipartite network with parts $R$ and $S$ (sizes $|R|=m$, $|S|=n$), the number of possible cross-mode ties is $m\,n$. The (binary) density is:
+
+$$
+D_{\text{bi}} \;=\; \frac{E}{m\,n},
+$$
+
+where $E$ is the number of observed $R\!\leftrightarrow\!S$ ties.
+
+#### Weighted Density (Bipartite)
+
+Treat missing ties as weight $0$ and average the cross-mode weights:
+
+$$
+D^{(w)}_{\text{bi}} \;=\; \frac{\sum_{u\in R}\sum_{v\in S} w_{uv}}{m\,n}.
+$$
+
+
+
+```{r echo=FALSE, results='asis', message=FALSE}
+
+types <- V(g_bi_und_all)$type
+m <- sum(!types)   # |R| Residents
+n <- sum(types)    # |S| Supervisors
+denom <- m * n
+
+# --- Unweighted bipartite density (E / (|R||S|))
+Ecnt <- ecount(g_bi_und_all)
+d_bi <- Ecnt / denom 
+
+# --- Weighted bipartite density: average cross-mode weight
+has_w <- "weight" %in% edge_attr_names(g_bi_und_all)
+sum_w <- if (has_w) sum(E(g_bi_und_all)$weight, na.rm = TRUE) else NA_real_
+d_bi_w <- if (has_w && denom > 0) sum_w / denom else NA_real_
+
+
+cat(sprintf("Unweighted bipartite density = %.4f  \n", d_bi))
+cat(sprintf("Weighted bipartite density = %.4f  \n", d_bi_w))
+```
+
+
+### Centralization (Unweighted)
+
+Centralization is a characteristics of the whole network (as opposed to the individual nodes). 
+
+```{r bipartite-centralization all, results='asis', echo=FALSE}
+
+
+# ---- Degree centralization per side (binary) ----
+deg <- degree(g_bi_und_all)         # undirected degree
+deg_R <- deg[!types]
+deg_S <- deg[ types]
+
+num_R <- sum(max(deg_R) - deg_R)               # Freeman numerator on R side
+den_R <- (m - 1) * n                           # two-mode star maximum on R side
+cen_R <- if (den_R > 0) num_R / den_R else NA
+
+num_S <- sum(max(deg_S) - deg_S)               # Freeman numerator on S side
+den_S <- (n - 1) * m                           # two-mode star maximum on S side
+cen_S <- if (den_S > 0) num_S / den_S else NA
+
+cat(sprintf("Degree centralization (Residents) = %.4f  \n", cen_R))
+cat(sprintf("Degree centralization (Supervisors) = %.4f  \n", cen_S))
+
+# ---- Betweenness centralization (overall, unweighted) ----
+cb <- centr_betw(g_bi_und_all)$centralization
+cat(sprintf("Betweenness centralization (overall) = %.4f  \n", cb))
+```
+
+### Centrality 
+```{r echo=FALSE}
+# Unweighted degree (number of ties)
+deg <- degree(g_bi_und_all)         
+V(g_bi_und_all)$degree <- deg       
+
+# Strength (sum of incident weights) — compute or fill with NA of correct length
+if ("weight" %in% edge_attr_names(g_bi_und_all)) {
+  V(g_bi_und_all)$strength <- strength(g_bi_und_all, weights = E(g_bi_und_all)$weight)
+} else {
+  V(g_bi_und_all)$strength <- rep(NA_real_, vcount(g_bi_und_all))
+}
+
+types <- V(g_bi_und_all)$type
+grp   <- ifelse(types, "Supervisor", "Resident")
+
+deg_res <- degree(g_bi_und_all, v = V(g_bi_und_all)[!types])
+deg_sup <- degree(g_bi_und_all, v = V(g_bi_und_all)[ types])
+
+# tapply(deg, grp, summary)        # quick summaries by group
+
+verts <- data.frame(
+  name     = V(g_bi_und_all)$name,
+  group    = grp,
+  degree   = V(g_bi_und_all)$degree,
+  strength = V(g_bi_und_all)$strength
+)
+verts %>%
+  filter(group == "Resident") %>%
+  select(name, degree, strength) %>%
+  kbl(
+    col.names = c("Resident", "Out-degree", "Strength (sum of weights)"),
+    caption="Table 4.6: Degree centrality for each resident in the bipartite Overall network") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T)
+
+verts %>%
+  filter(group == "Supervisor") %>%
+  select(name, degree, strength) %>%
+  kbl(
+    col.names = c("Supervisor", "In-degree", "Strength (sum of weights)"),
+    caption="Table 4.7: Degree centrality for each supervisor in the bipartite Overall network") %>%
+  kable_styling(bootstrap_options = c("striped"), full_width = F, fixed_thead = T)
+```
+
+
+
+
+
+
+```{r echo=FALSE}
+# Identify groups
+types <- V(g_bi_und_all)$type                 # TRUE = supervisors (columns), FALSE = residents (rows)
+res <- which(!types)
+sup <- which(types)
+
+# Build a spacious custom layout
+hspace <- 2.5   # horizontal spacing multiplier (increase to spread more)
+y_gap  <- 3.0   # vertical gap between layers
+
+x_res <- seq_along(res) * hspace
+x_sup <- seq_along(sup) * hspace
+y_res <- rep(y_gap, length(res))   # residents on top
+y_sup <- rep(2,     length(sup))   # supervisors bottom
+
+L <- matrix(NA_real_, nrow = vcount(g_bi_und_all), ncol = 2)
+L[res,] <- cbind(x_res, y_res)
+L[sup,] <- cbind(x_sup, y_sup)
+
+# Styling: colors, label size, edge visibility
+V(g_bi_und_all)$color <- net.attr$clr
+V(g_bi_und_all)$shape <- net.attr$Shape
+V(g_bi_und_all)$frame.color <- "black"
+
+# labels smaller & readable
+lab_cex <- 0.65
+lab_col <- "black"
+
+# edge width scaled by weight (or set a fixed width if unweighted)
+w <- E(g_bi_und_all)$weight
+if (is.null(w)) w <- rep(1, ecount(g_bi_und_all))
+mx <- max(w, na.rm = TRUE); if (!is.finite(mx) || mx == 0) mx <- 1
+E(g_bi_und_all)$width <- 1 + 3 * (w / mx)                       # thicker edges
+E(g_bi_und_all)$color <- grDevices::adjustcolor("grey20", 0.6)   # darker + semi-transparent
+E(g_bi_und_all)$curved <- 0.08                                   # slight curvature reduces overlap
+
+# 5) Plot
+op <- par(mar = c(1,1,1,1))
+plot(
+  g_bi_und_all, layout = L,
+  vertex.shape = V(g_bi_und_all)$shape,
+  vertex.size = 4+ V(g_bi_und_all)$degree * 2,
+  vertex.label = V(g_bi_und_all)$name,
+  vertex.label.cex = lab_cex,
+  vertex.label.color = lab_col,
+  edge.arrow.size = 0.5,
+  asp = 0.4,               # wider aspect ratio
+)
+title(main = "Figure 4.6: Resident–Supervisor (Bipartite) Network - Nodes' size adjusted based on degree", cex.main = 0.9)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("Supervisors", "PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("slateblue2", "red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+par(op)
+```
+
+```{r echo=FALSE}
+op <- par(mar = c(1,1,1,1))
+plot(
+  g_bi_und_all, layout = L,
+  vertex.shape = V(g_bi_und_all)$shape,
+  vertex.size = 2+ V(g_bi_und_all)$strength * 0.3,
+  vertex.label = V(g_bi_und_all)$name,
+  vertex.label.cex = lab_cex,
+  vertex.label.color = lab_col,
+  edge.arrow.size = 0.5,
+  asp = 0.4
+)
+title(main = "Figure 4.7: Resident–Supervisor (Bipartite) Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("Supervisors", "PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("slateblue2", "red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+par(op)
+```
+
+# **5) One mode networks from biparatite network:**
+```{r echo=FALSE}
+types <- V(g_bi_und_all)$type
+R_names <- V(g_bi_und_all)$name[!types]
+S_names <- V(g_bi_und_all)$name[ types]
+
+## 1) Incidence matrix (Residents rows, Supervisors cols)
+# Use edge weights if present; otherwise treat as 1
+has_w <- "weight" %in% edge_attr_names(g_bi_und_all)
+B <- as_biadjacency_matrix(
+  g_bi_und_all,
+  types = types,
+  attr  = if (has_w) "weight" else NULL,
+  sparse = TRUE
+)
+# Row/col names sanity
+stopifnot(identical(rownames(B), R_names), identical(colnames(B), S_names))
+
+## 2) Projections
+# Binary projection (counts of common alters)
+B_bin <- (B > 0)
+WR_bin <- as.matrix(B_bin %*% t(B_bin)); diag(WR_bin) <- 0   # R×R
+WS_bin <- as.matrix(t(B_bin) %*% B_bin); diag(WS_bin) <- 0   # S×S
+
+# Weighted projection (sum of products across shared supervisors/residents)
+WR_w <- as.matrix(B %*% t(B)); diag(WR_w) <- 0
+WS_w <- as.matrix(t(B) %*% B); diag(WS_w) <- 0
+
+# Graphs
+g_R_bin <- graph_from_adjacency_matrix(WR_bin, mode = "undirected", weighted = TRUE, diag = FALSE)
+g_S_bin <- graph_from_adjacency_matrix(WS_bin, mode = "undirected", weighted = TRUE, diag = FALSE)
+g_R_w   <- graph_from_adjacency_matrix(WR_w,   mode = "undirected", weighted = TRUE, diag = FALSE)
+g_S_w   <- graph_from_adjacency_matrix(WS_w,   mode = "undirected", weighted = TRUE, diag = FALSE)
+
+## 3) Compare Resident projection with peer network g_peer_all
+# Peer graph is directed; compare against an undirected, collapsed version
+g_peer_und_all <- as_undirected(
+  g_peer_all, mode = "collapse",
+  edge.attr.comb = list(weight = "sum", "ignore")
+)
+
+# Align vertex sets (intersection of residents present in both graphs)
+common_R <- intersect(V(g_R_w)$name, V(g_peer_und_all)$name)
+gR_w_c   <- induced_subgraph(g_R_w, vids = common_R)
+gP_c     <- induced_subgraph(g_peer_und_all, vids = common_R)
+
+# Same order for matrices
+ord <- common_R[order(common_R)]
+ARw <- as.matrix(as_adjacency_matrix(gR_w_c, attr = "weight", sparse = FALSE))[ord, ord]
+APw <- as.matrix(as_adjacency_matrix(gP_c,   attr = "weight", sparse = FALSE))[ord, ord]
+diag(ARw) <- 0; diag(APw) <- 0
+
+# Binary versions for overlap
+ARb <- (ARw > 0) * 1
+APb <- (APw > 0) * 1
+
+# Helper to get lower-tri vector (undirected)
+lt <- function(M) M[lower.tri(M, diag = FALSE)]
+
+# --- Summary of each graph (Residents only, common set)
+summ_tbl <- tibble::tibble(
+  Graph     = c("Resident projection (binary)", "Resident projection (weighted)", "Peer network (undirected)"),
+  Nodes     = c(length(ord), length(ord), length(ord)),
+  Edges     = c(ecount(graph_from_adjacency_matrix(ARb, mode="undirected", diag=FALSE)),
+                ecount(graph_from_adjacency_matrix(ARw, mode="undirected", weighted=TRUE, diag=FALSE)),
+                ecount(graph_from_adjacency_matrix(APw>0, mode="undirected", diag=FALSE))),
+  Density   = c( sum(lt(ARb)) / choose(length(ord), 2),
+                 sum(lt(ARw>0)) / choose(length(ord), 2),
+                 sum(lt(APw>0)) / choose(length(ord), 2) ),
+  `Σ weight` = c(sum(lt(ARb)), sum(lt(ARw)), sum(lt(APw))),
+  `Median weight` = c(median(lt(ARb)),
+                      ifelse(any(lt(ARw)>0), median(lt(ARw)[lt(ARw)>0]), 0),
+                      ifelse(any(lt(APw)>0), median(lt(APw)[lt(APw)>0]), 0))
+)
+
+# --- Overlap & similarity between Resident projection and Peer
+# Binary Jaccard on edges
+A_int  <- sum(lt(ARb) & lt(APb))
+A_union<- sum(lt(ARb) | lt(APb))
+jacc_bin <- if (A_union > 0) A_int / A_union else NA_real_
+
+# Weighted Jaccard (sum of mins / sum of maxs over all unordered pairs)
+mins <- pmin(lt(ARw), lt(APw))
+maxs <- pmax(lt(ARw), lt(APw))
+jacc_w <- if (sum(maxs) > 0) sum(mins) / sum(maxs) else NA_real_
+
+# Correlations of weights (use Spearman by default; zero-inflated data)
+pear  <- suppressWarnings(cor(lt(ARw), lt(APw), use = "pairwise.complete.obs", method = "pearson"))
+spear <- suppressWarnings(cor(lt(ARw), lt(APw), use = "pairwise.complete.obs", method = "spearman"))
+
+cmp_tbl <- tibble::tibble(
+  Metric = c("Binary Jaccard (edge overlap)", "Weighted Jaccard", "Pearson r (weights)", "Spearman ρ (weights)"),
+  Value  = c(jacc_bin, jacc_w, pear, spear)
+)
+
+# --- Print nicely
+summ_tbl %>%
+  kbl(
+    caption = "Resident projection vs Peer network: summary",
+    booktabs = TRUE,
+    digits = 3,
+    align = c("l","r","r","r","r","r"),
+    format.args = list(nsmall = 3)
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE, fixed_thead = TRUE)
+
+cmp_tbl %>%
+  kbl(
+    caption = "Resident projection vs Peer network: overlap and similarity",
+    booktabs = TRUE,
+    digits = 3,
+    align = c("l","r"),
+    format.args = list(nsmall = 3)
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE, fixed_thead = TRUE)
+```
+
+```{r echo=FALSE}
+idx <- match(V(g_R_w)$name, net.attr$id)
+V(g_R_w)$clr <- net.attr$clr[idx]
+V(g_R_w)$Level <- net.attr$Level[idx]
+V(g_R_w)$Gender <- net.attr$Gender[idx]
+V(g_R_w)$shape <- net.attr$Shape[idx]
+
+
+set.seed(1)
+L <- layout_with_fr(g_R_w, niter = 2000, weights = NA)
+
+# edge widths by weight (visible, robust)
+w <- E(g_R_w)$weight
+if (is.null(w)) w <- rep(1, ecount(g_R_w))
+rng <- range(w, na.rm = TRUE)
+E(g_R_w)$width <- if (diff(rng) == 0) 2 else 1 + 3 * (w - rng[1]) / diff(rng)
+
+# OPTIONAL: size nodes by weighted degree (strength)
+s <- strength(g_R_w, weights = E(g_R_w)$weight)
+# simple rescale to [12, 28] without extra packages
+vsize <- if (all(is.finite(s)) && diff(range(s)) > 0) {
+  12 + 16 * (s - min(s)) / diff(range(s))
+} else 20
+
+op <- par(cex.main = 0.9, mar = c(0.5, 0.5, 2, 0.5))
+plot(g_R_w,
+     vertex.color = V(g_R_w)$clr,
+     vertex.size=vsize * 0.7,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = L,
+     main=list("Figure 5.1: Residents projection Nodes' size adjusted based on Weighted Degrees (Strength)",cex = 0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+legend("bottomright",
+       c("PGY3", "PGY1"),
+       pch = 21,
+       col = "black", cex = 0.8,
+       pt.bg = c("red", "orange"),
+       pt.cex = 1.0, bty = "n")
+
+
+```
+
+```{r echo=FALSE}
+idx <- match(V(g_S_w)$name, net.attr$id)
+V(g_S_w)$clr <- net.attr$clr[idx]
+V(g_S_w)$Level <- net.attr$Level[idx]
+V(g_S_w)$Gender <- net.attr$Gender[idx]
+V(g_S_w)$shape <- net.attr$Shape[idx]
+
+
+set.seed(2)
+# L <- layout_with_graphopt(
+#   g_S_w,
+#   niter = 1000,          # more iterations for stability
+#   spring.length = 150,   # ↑ increase to spread connected nodes
+#   spring.constant = 1,   # spring strength; keep ~1
+#   charge = 0.15,         # ↑ node–node repulsion
+#   mass = 30              # smoothing/inertia
+# )
+L <- layout_with_fr(g_S_w, weights = NA)
+
+# edge widths by weight (visible, robust)
+w <- E(g_S_w)$weight
+if (is.null(w)) w <- rep(1, ecount(g_S_w))
+rng <- range(w, na.rm = TRUE)
+E(g_S_w)$width <- if (diff(rng) == 0) 2 else 1 + 3 * (w - rng[1]) / diff(rng)
+
+# OPTIONAL: size nodes by weighted degree (strength)
+s <- strength(g_S_w, weights = E(g_S_w)$weight)
+# simple rescale to [12, 28] without extra packages
+vsize <- if (all(is.finite(s)) && diff(range(s)) > 0) {
+  12 + 16 * (s - min(s)) / diff(range(s))
+} else 20
+
+op <- par(cex.main = 0.9, mar = c(0.5, 0.5, 2, 0.5))
+plot(g_S_w,
+     vertex.color = V(g_S_w)$clr,
+     vertex.size=vsize * 0.7,
+     vertex.label.cex = 0.8,
+     vertex.label.dist = 0,
+     vertex.label.color = "black",
+     edge.color = "grey",
+     edge.arrow.size = 0.5,
+     layout = L,
+     main=list("Figure 5.1: Supervisers projection: Nodes' size adjusted based on Weighted Degrees (Strength)",cex = 0.8),
+     displaylabels=TRUE)
+legend("bottomleft",
+       c("Male", "Female"),
+       pch = c(22, 21),           # 22 = filled square, 21 = filled circle
+       col = "black",
+       pt.bg = c("gray", "gray"),
+       pt.cex = 1.0, bty = "n", cex = 0.8)
+
+
+```
+
+# **6) Compare Three peer networks**
+
+```{r standard table, echo=FALSE}
+s_table <- function(df, caption) {
+  kbl(df,
+    caption = caption,
+    booktabs = TRUE,
+    digits = 3,
+    align = c("l","r"),
+    format.args = list(nsmall = 3)
+  ) %>%
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE, fixed_thead = TRUE)
+  
+}
+```
+
+```{r peer-compare, echo=FALSE, message=FALSE}
+
+# ----- helpers -----
+lt <- function(M) M[lower.tri(M, diag = FALSE)]     # vectorize undirected weights
+jacc_bin_vec <- function(x, y) {
+  x <- x > 0; y <- y > 0
+  u <- sum(x | y); if (u == 0) return(NA_real_)
+  sum(x & y) / u
+}
+jacc_w_vec <- function(x, y) {
+  num <- sum(pmin(x, y)); den <- sum(pmax(x, y))
+  if (den == 0) return(NA_real_) else num / den
+}
+pairwise_matrix <- function(Mlist, fun, vfun) {
+  keys <- names(Mlist); n <- length(keys)
+  out <- matrix(NA_real_, n, n, dimnames = list(keys, keys))
+  for (i in seq_len(n)) for (j in seq_len(n)) {
+    out[i, j] <- fun(vfun(Mlist[[i]]), vfun(Mlist[[j]]))
+  }
+  out
+}
+
+# ----- graphs -----
+Gs <- list(PS = g_peer_ps, P = g_peer_p, FK = g_peer_fk)
+
+# Align to common vertex set and collapse to UNDIRECTED for fair comparison
+common <- Reduce(intersect, lapply(Gs, \(g) V(g)$name))
+Gs <- lapply(Gs, \(g) induced_subgraph(g, common))
+GsU <- lapply(Gs, \(g) as_undirected(g, mode = "collapse",
+                                     edge.attr.comb = list(weight = "sum", "ignore")))
+
+# Same vertex order for all adjacency matrices
+ord <- sort(common)
+A_w <- lapply(GsU, \(g) {
+  M <- as.matrix(as_adjacency_matrix(g, attr = "weight", sparse = FALSE))
+  diag(M) <- 0
+  M[ord, ord, drop = FALSE]
+})
+A_b <- lapply(A_w, \(M) (M > 0) * 1)
+
+# ----- pairwise metrics (undirected -> use lower triangle) -----
+bin_jacc <- pairwise_matrix(A_b, jacc_bin_vec, lt)
+w_jacc   <- pairwise_matrix(A_w, jacc_w_vec,   lt)
+pear     <- pairwise_matrix(A_w, \(x,y) suppressWarnings(cor(x, y, use="pair", method="pearson")),  lt)
+spear    <- pairwise_matrix(A_w, \(x,y) suppressWarnings(cor(x, y, use="pair", method="spearman")), lt)
+
+# ----- render -----
+
+s_table(bin_jacc, "Table 6.1: Peer networks: Binary Jaccard (edge overlap)")
+s_table(w_jacc,   "Table 6.2: Peer networks: Weighted Jaccard (edge-weight similarity)")
+s_table(pear,     "Table 6.3: Peer networks: Pearson correlation of weights")
+s_table(spear,    "Table 6.4: Peer networks: Spearman correlation of weights")
+
+```
+```{r peer-qap, echo=FALSE, message=FALSE}
+library(sna)
+## 1) Align to same nodes and build UNDIRECTED weighted adjacencies
+Gs <- list(PS = g_peer_ps, P = g_peer_p, FK = g_peer_fk)
+common <- Reduce(intersect, lapply(Gs, \(g) V(g)$name))
+Gs <- lapply(Gs, \(g) induced_subgraph(g, vids = common))
+GsU <- lapply(Gs, \(g) as_undirected(
+  g, mode = "collapse",
+  edge.attr.comb = list(weight = "sum", "ignore")
+))
+ord <- sort(common)
+A_w <- lapply(GsU, \(g) {
+  M <- as.matrix(as_adjacency_matrix(g, attr = "weight", sparse = FALSE))[ord, ord, drop = FALSE]
+  diag(M) <- 0
+  M[!is.finite(M)] <- 0
+  M
+})
+
+## 2) Manual QAP (correlation of lower triangles)
+lt <- function(M) M[lower.tri(M, diag = FALSE)]
+
+qap_cor_manual <- function(M1, M2, reps = 500, seed = 123) {
+  stopifnot(all(dim(M1) == dim(M2)), nrow(M1) == ncol(M1))
+  M1 <- as.matrix(M1); M2 <- as.matrix(M2)
+  diag(M1) <- 0; diag(M2) <- 0
+  M1[!is.finite(M1)] <- 0; M2[!is.finite(M2)] <- 0
+
+  x <- lt(M1); y <- lt(M2)
+  r_obs <- suppressWarnings(cor(x, y, use = "pair"))
+
+  set.seed(seed)
+  n <- nrow(M2)
+  r_perm <- numeric(reps)
+  for (k in seq_len(reps)) {
+    p  <- sample.int(n)          # same permutation for rows & cols of M2
+    Mp <- M2[p, p, drop = FALSE]
+    r_perm[k] <- suppressWarnings(cor(lt(M1), lt(Mp), use = "pair"))
+  }
+  p_val <- mean(abs(r_perm) >= abs(r_obs))
+  c(r = r_obs, p = p_val)
+}
+
+## 3) Pairwise QAP r and p for the three peer graphs
+keys <- names(A_w); n <- length(keys)
+QAP_r <- matrix(NA_real_, n, n, dimnames = list(keys, keys))
+QAP_p <- matrix(NA_real_, n, n, dimnames = list(keys, keys))
+for (i in seq_len(n)) for (j in seq_len(n)) {
+  rp <- qap_cor_manual(A_w[[i]], A_w[[j]], reps = 500)
+  QAP_r[i, j] <- rp["r"]; QAP_p[i, j] <- rp["p"]
+}
+
+## 4) Render tables
+s_table(QAP_r, "Table 6.5: Peer networks - QAP Pearson correlations (observed r)")
+s_table(QAP_p, "Table 6.6: Peer networks - QAP p-values (two-sided)")
+
+```
+
+
+# **7) Compare Three bipartite networks**
+```{r bipartite-compare, echo=FALSE, message=FALSE}
+
+# ----- helpers -----
+vec_all <- function(M) as.vector(M)  # vectorize all R×S entries
+jacc_bin_vec <- function(x, y) { x <- x>0; y <- y>0; u <- sum(x|y); if(u==0) NA_real_ else sum(x&y)/u }
+jacc_w_vec   <- function(x, y) { num <- sum(pmin(x,y)); den <- sum(pmax(x,y)); if(den==0) NA_real_ else num/den }
+pairwise <- function(Mlist, FUN) {
+  keys <- names(Mlist); n <- length(keys)
+  out <- matrix(NA_real_, n, n, dimnames = list(keys, keys))
+  for (i in seq_len(n)) for (j in seq_len(n)) out[i,j] <- FUN(Mlist[[i]], Mlist[[j]])
+  out
+}
+
+# ----- build incidence matrices (Residents rows, Supervisors cols) -----
+build_B <- function(g) {
+  if (is.null(V(g)$type)) stop("V(g)$type is missing (FALSE=Residents, TRUE=Supervisors).")
+  B <- as_biadjacency_matrix(g, types = V(g)$type, attr = "weight", sparse = FALSE)
+  list(B = B, R = rownames(B), S = colnames(B))
+}
+
+Gs2 <- list(PS = g_bi_und_ps, P = g_bi_und_p, FK = g_bi_und_fk)
+Bs  <- lapply(Gs2, build_B)
+
+# Align on the intersection of Residents and Supervisors across all graphs
+common_R <- Reduce(intersect, lapply(Bs, \(x) x$R))
+common_S <- Reduce(intersect, lapply(Bs, \(x) x$S))
+
+Bw <- lapply(Bs, \(x) {
+  M <- x$B[common_R, common_S, drop = FALSE]; M[is.na(M)] <- 0; M
+})
+Bb <- lapply(Bw, \(M) (M > 0) * 1)
+
+# Vectorized entries for pairwise calcs
+Vw <- lapply(Bw, vec_all)
+Vb <- lapply(Bb, vec_all)
+
+# Pairwise metrics
+keys <- names(Bw)
+bin_jacc <- matrix(NA_real_, length(keys), length(keys), dimnames = list(keys, keys))
+w_jacc   <- bin_jacc; pear <- bin_jacc; spear <- bin_jacc
+
+for (i in seq_along(keys)) for (j in seq_along(keys)) {
+  xw <- Vw[[i]]; yw <- Vw[[j]]
+  xb <- Vb[[i]]; yb <- Vb[[j]]
+  bin_jacc[i,j] <- jacc_bin_vec(xb, yb)
+  w_jacc[i,j]   <- jacc_w_vec(xw, yw)
+  pear[i,j]     <- suppressWarnings(cor(xw, yw, use = "pair", method = "pearson"))
+  spear[i,j]    <- suppressWarnings(cor(xw, yw, use = "pair", method = "spearman"))
+}
+
+
+s_table(bin_jacc, "Table 7.1: Bipartite networks - Binary Jaccard over R×S incidence")
+s_table(w_jacc,   "Table 7.2: Bipartite networks - Weighted Jaccard over R×S incidence")
+s_table(pear,     "Table 7.3: Bipartite networks - Pearson correlation of R×S weights")
+s_table(spear,    "Table 7.4: Bipartite networks - Spearman correlation of R×S weights")
+
+
+```
