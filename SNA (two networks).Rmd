@@ -699,16 +699,18 @@ kbl(
 
 
 ```{r echo=FALSE, warning=FALSE}
+#### set network layout
+# layout_with_graphopt(g_peer_ps)
+L <- layout.fruchterman.reingold(g_peer_ps)
 plot(g_peer_ps,
      vertex.color = V(g_peer_ps)$clr,
-     vertex.size=(V(g_peer_ps)$w_degree),
+     vertex.size=5 + (V(g_peer_ps)$w_degree) * 0.8,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold,
-     Layout = 1,
+     layout = L,
      main=list("Figure 1.2: Procedural Skills Network: Nodes' size adjusted based on Weighted Degrees (Strength)",cex = 0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -728,14 +730,13 @@ legend("bottomright",
 
 plot(g_peer_ps,
      vertex.color = V(g_peer_ps)$clr,
-     vertex.size=(V(g_peer_ps)$w_in)*2,
+     vertex.size=5 + (V(g_peer_ps)$w_in)*1.5,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold, 
-     Layout = 1,
+     layout = L, 
      main=list("Figure 1.3: Procedural Skills Network: Nodes' size adjusted based on Weighted Indegrees", cex=0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -755,14 +756,13 @@ legend("bottomright",
 
 plot(g_peer_ps,
      vertex.color = V(g_peer_ps)$clr,
-     vertex.size=(V(g_peer_ps)$w_out)*2,
+     vertex.size=5 + (V(g_peer_ps)$w_out)*1.5,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold,
-     Layout = 1,
+     layout = L,
      main=list("Figure 1.4: Procedural Skills Network: Nodes' size adjusted based on Weighted Outdegrees", cex=0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -1606,16 +1606,19 @@ kbl(
 
 
 ```{r echo=FALSE, warning=FALSE}
+#### set network layout
+# layout_with_graphopt(g_peer_fk)
+L <- layout.fruchterman.reingold(g_peer_fk)
+
 plot(g_peer_fk,
      vertex.color = V(g_peer_fk)$clr,
-     vertex.size=(V(g_peer_fk)$w_degree),
+     vertex.size=2+(V(g_peer_fk)$w_degree),
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold,
-     Layout = 1,
+     layout = L,
      main=list("Figure 2.2: Factual Knowledge Network: Nodes' size adjusted based on Weighted Degrees (Strength)",cex = 0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -1635,14 +1638,13 @@ legend("bottomright",
 
 plot(g_peer_fk,
      vertex.color = V(g_peer_fk)$clr,
-     vertex.size=(V(g_peer_fk)$w_in)*2,
+     vertex.size = 7 + (V(g_peer_fk)$w_in)*1.2,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold, 
-     Layout = 1,
+     layout = L,
      main=list("Figure 2.3: Factual Knowledge Network: Nodes' size adjusted based on Weighted Indegrees", cex=0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -1662,14 +1664,13 @@ legend("bottomright",
 
 plot(g_peer_fk,
      vertex.color = V(g_peer_fk)$clr,
-     vertex.size=(V(g_peer_fk)$w_out)*2,
+     vertex.size = 7 + (V(g_peer_fk)$w_out)*1.2,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold,
-     Layout = 1,
+     layout = L,
      main=list("Figure 2.4: Factual Knowledge Network: Nodes' size adjusted based on Weighted Outdegrees", cex=0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -1920,7 +1921,7 @@ plot(
   asp = 0.4,               # wider aspect ratio
   # main = "Figure 1.6: Resident–Supervisor (Bipartite) Network - Nodes' size adjusted based on degree"
 )
-title(main = "Figure 2.6: Resident–Supervisor (Bipartite) Factual Knowledge Network - Nodes' size adjusted based on degree", cex.main = 0.9)
+title(main = "Figure 2.6: Resident–Supervisor (Bipartite) Factual Knowledge Network - Nodes' size -> degree", cex.main = 0.9)
 legend("bottomleft",
        c("Male", "Female"),
        pch = c(22, 21),           # 22 = filled square, 21 = filled circle
@@ -2511,16 +2512,18 @@ kbl(
 
 
 ```{r echo=FALSE, warning=FALSE}
+#### set network layout
+# layout_with_graphopt(g_peer_p)
+L <- layout.fruchterman.reingold(g_peer_p)
 plot(g_peer_p,
      vertex.color = V(g_peer_p)$clr,
-     vertex.size=(V(g_peer_p)$w_degree),
+     vertex.size=7+(V(g_peer_p)$w_degree)*3,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold,
-     Layout = 1,
+     layout = L,
      main=list("Figure 3.2: Professionalism Network: Nodes' size adjusted based on Weighted Degrees (Strength)",cex = 0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -2540,14 +2543,13 @@ legend("bottomright",
 
 plot(g_peer_p,
      vertex.color = V(g_peer_p)$clr,
-     vertex.size=(V(g_peer_p)$w_in)*2,
+     vertex.size= 7+(V(g_peer_p)$w_in)*4,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold, 
-     Layout = 1,
+     layout = L,
      main=list("Figure 3.3: Professionalism Network: Nodes' size adjusted based on Weighted Indegrees", cex=0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -2567,14 +2569,13 @@ legend("bottomright",
 
 plot(g_peer_p,
      vertex.color = V(g_peer_p)$clr,
-     vertex.size=(V(g_peer_p)$w_out)*2,
+     vertex.size=7+(V(g_peer_p)$w_out)*4,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold,
-     Layout = 1,
+     layout = L,
      main=list("Figure 3.4: Professionalism Network: Nodes' size adjusted based on Weighted Outdegrees", cex=0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -2840,7 +2841,7 @@ op <- par(mar = c(1,1,1,1))
 plot(
   g_bi_und_p, layout = L,
   vertex.shape = V(g_bi_und_p)$shape,
-  vertex.size = 3+ V(g_bi_und_p)$strength * 0.5,
+  vertex.size = 7+ V(g_bi_und_p)$strength ,
   vertex.label = V(g_bi_und_p)$name,
   vertex.label.cex = lab_cex,
   vertex.label.color = lab_col,
@@ -3396,16 +3397,18 @@ kbl(
 
 
 ```{r echo=FALSE, warning=FALSE}
+#### set network layout
+# layout_with_graphopt(g_peer_all)
+L <- layout.fruchterman.reingold(g_peer_all)
 plot(g_peer_all,
      vertex.color = V(g_peer_all)$clr,
-     vertex.size=(V(g_peer_all)$w_degree)* 0.7,
+     vertex.size=(V(g_peer_all)$w_degree)* 0.6,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold,
-     Layout = 1,
+     layout = L,
      main=list("Figure 4.2: Overall Network: Nodes' size adjusted based on Weighted Degrees (Strength)",cex = 0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -3425,14 +3428,13 @@ legend("bottomright",
 
 plot(g_peer_all,
      vertex.color = V(g_peer_all)$clr,
-     vertex.size=(V(g_peer_all)$w_in),
+     vertex.size=8 + (V(g_peer_all)$w_in) * 0.7,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold, 
-     Layout = 1,
+     layout = L,
      main=list("Figure 4.3: Overall Network: Nodes' size adjusted based on Weighted Indegrees", cex=0.8),
      displaylabels=TRUE)
 legend("bottomleft",
@@ -3452,14 +3454,13 @@ legend("bottomright",
 
 plot(g_peer_all,
      vertex.color = V(g_peer_all)$clr,
-     vertex.size=(V(g_peer_all)$w_out),
+     vertex.size=8 + (V(g_peer_all)$w_out) *.7,
      vertex.label.cex = 0.8,
      vertex.label.dist = 0,
      vertex.label.color = "black",
      edge.color = "grey",
      edge.arrow.size = 0.5,
-     layout = layout.fruchterman.reingold,
-     Layout = 1,
+     layout = L,
      main=list("Figure 4.4: Overall Network: Nodes' size adjusted based on Weighted Outdegrees", cex=0.8),
      displaylabels=TRUE)
 legend("bottomleft",
