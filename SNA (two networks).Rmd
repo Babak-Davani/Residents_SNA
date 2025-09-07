@@ -4,48 +4,69 @@ author: "Babak Davani"
 date: "`r format(Sys.time(), '%Y-%m-%d')` "
 output:
   html_document:
+    toc: true
+    toc_depth: 3
+    toc_float: true
     df_print: paged
-  rmdformats::material:
-    highlight: kate
-  pdf_document: default
-  word_document: default
+params:
+  input_file: "D:\\babak\\Google drive\\_R\\Residents_SNA\\data\\Feedback seeking-Akbari.xlsx"
 ---
 
 ```{r setup, message=FALSE, include=FALSE}
-library(readxl)
-library(igraph)
-# library(sna)
-library(knitr)
-library(dplyr)
-library(Matrix)
-library(ggplot2)
-library(vtable)
-# library(RColorBrewer)
-library(kableExtra)
-library(gt)
-library(ggpubr)
-# library(data.table)
-# library(ggcorrplot)
+# Global options and packages
+knitr::opts_chunk$set(
+  echo = FALSE, message = FALSE, warning = FALSE,
+  fig.width = 8, fig.height = 6, fig.align = "center",
+  out.width = "90%", dpi = 150
+)
 
-setwd("D:\\babak\\Google drive\\_R\\Residents_SNA")
-# setwd("/Users/babak/Library/CloudStorage/GoogleDrive-mostafazade@gmail.com/My Drive/_R/social network analysis_ Gamdomkar")
-
-
+suppressPackageStartupMessages({
+  library(readxl)
+  library(dplyr)
+  library(tidyr)
+  library(purrr)
+  library(igraph)
+  library(stringr)
+  library(tibble)
+  library(knitr)
+  library(kableExtra)
+})
+if ("package:sna" %in% search()) {
+  detach("package:sna", unload = TRUE, character.only = TRUE)
+}
+set.seed(42)
 ```
+
+### Glossary of Acronyms
+
+PS — Procedural Skills
+
+P — Professionalism
+
+FK — Factual Knowledge 
+
+S — Supervisor 
+
+T — Third-Year Resident 
+
+F — First-Year Resident 
+
 
 ```{r reading_data, echo=FALSE}
 #I used `read.csv()` to import the data. I created another csv to add the attributes for each node. 
 #Since, by default this function will turn character variables into factors, I used the `as.is` option to keep character variables as character.
 
-# 1. See the sheet names in the file
-sheet_names <- excel_sheets("data\\Feedback seeking-Akbari.xlsx")
+## Load data
+xlsx_path <- params$input_file
+stopifnot(file.exists(xlsx_path))
 
-# 2. Read all sheets into a list of data frames
-all_sheets <- lapply(sheet_names, function(sheet) {
-  read_excel("data\\Feedback seeking-Akbari.xlsx", sheet = sheet)
-})
+sheets <- readxl::excel_sheets(xlsx_path)
+# sheets
 
-names(all_sheets) <- sheet_names #name the list elements(dfs)
+# Read all sheets as tibbles into a named list
+all_sheets <- sheets |>
+  set_names() |>
+  map(~ readxl::read_excel(xlsx_path, sheet = .x))
 ```
 
 
@@ -119,7 +140,7 @@ net.attr <- net.attr %>%
       Level == "Supervisor" ~ "S",
       Level == "PGY3" ~ "T", # Third-year 
       Level == "PGY1" ~ "F" # First-year
-    )) %>%  # 
+    )) %>%  
   mutate(id = paste0(group, row_number())) %>%         # S1.. / R1.. per group
   ungroup() %>%
   select(id, name, everything(), -group)
@@ -1023,9 +1044,9 @@ plot(
   vertex.label.color = lab_col,
   edge.arrow.size = 0.5,
   asp = 0.4,               # wider aspect ratio
-  # main = "Figure 1.6: Resident–Supervisor (Bipartite) Network - Nodes' size adjusted based on degree"
+
 )
-title(main = "Figure 1.6: Resident–Supervisor (Bipartite) Network - Nodes' size adjusted based on degree", cex.main = 0.9)
+title(main = "Figure 1.6: Resident–Supervisor Network-Nodes' size adjusted based on degree", cex.main = 0.9)
 legend("bottomleft",
        c("Male", "Female"),
        pch = c(22, 21),           # 22 = filled square, 21 = filled circle
@@ -1054,9 +1075,9 @@ plot(
   vertex.label.color = lab_col,
   edge.arrow.size = 0.5,
   asp = 0.4,               # wider aspect ratio
-  # main = "Figure 1.7: Resident–Supervisor (Bipartite) Network Nodes' size adjusted based on Strenght"
+  # main = "Figure 1.7: Resident–Supervisor Network Nodes' size adjusted based on Strenght"
 )
-title(main = "Figure 1.7: Resident–Supervisor (Bipartite) Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
+title(main = "Figure 1.7: Resident–Supervisor Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
 legend("bottomleft",
        c("Male", "Female"),
        pch = c(22, 21),           # 22 = filled square, 21 = filled circle
@@ -1919,9 +1940,9 @@ plot(
   vertex.label.color = lab_col,
   edge.arrow.size = 0.5,
   asp = 0.4,               # wider aspect ratio
-  # main = "Figure 1.6: Resident–Supervisor (Bipartite) Network - Nodes' size adjusted based on degree"
+  # main = "Figure 1.6: Resident–Supervisor Network - Nodes' size adjusted based on degree"
 )
-title(main = "Figure 2.6: Resident–Supervisor (Bipartite) Factual Knowledge Network - Nodes' size -> degree", cex.main = 0.9)
+title(main = "Figure 2.6: Resident–SupervisorFactual Knowledge Network - Nodes' size adjusted based on degree", cex.main = 0.9)
 legend("bottomleft",
        c("Male", "Female"),
        pch = c(22, 21),           # 22 = filled square, 21 = filled circle
@@ -1951,7 +1972,7 @@ plot(
   edge.arrow.size = 0.5,
   asp = 0.4,               # wider aspect ratio
 )
-title(main = "Figure 2.7: Resident–Supervisor (Bipartite) Factual Knowledge Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
+title(main = "Figure 2.7: Resident–Supervisor Factual Knowledge Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
 legend("bottomleft",
        c("Male", "Female"),
        pch = c(22, 21),           # 22 = filled square, 21 = filled circle
@@ -2818,7 +2839,7 @@ plot(
   edge.arrow.size = 0.5,
   asp = 0.4,
 )
-title(main = "Figure 3.6: Resident–Supervisor (Bipartite) Network - Nodes' size adjusted based on degree", cex.main = 0.9)
+title(main = "Figure 3.6: Resident–Supervisor Network - Nodes' size adjusted based on degree", cex.main = 0.9)
 legend("bottomleft",
        c("Male", "Female"),
        pch = c(22, 21),           # 22 = filled square, 21 = filled circle
@@ -2848,7 +2869,7 @@ plot(
   edge.arrow.size = 0.5,
   asp = 0.4,               # wider aspect ratio
  )
-title(main = "Figure 3.7: Resident–Supervisor (Bipartite) Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
+title(main = "Figure 3.7: Resident–Supervisor Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
 legend("bottomleft",
        c("Male", "Female"),
        pch = c(22, 21),           # 22 = filled square, 21 = filled circle
@@ -3711,7 +3732,7 @@ plot(
   edge.arrow.size = 0.5,
   asp = 0.4,               # wider aspect ratio
 )
-title(main = "Figure 4.6: Resident–Supervisor (Bipartite) Network - Nodes' size adjusted based on degree", cex.main = 0.9)
+title(main = "Figure 4.6: Resident–Supervisor Network - Nodes' size adjusted based on degree", cex.main = 0.9)
 legend("bottomleft",
        c("Male", "Female"),
        pch = c(22, 21),           # 22 = filled square, 21 = filled circle
@@ -3741,7 +3762,7 @@ plot(
   edge.arrow.size = 0.5,
   asp = 0.4
 )
-title(main = "Figure 4.7: Resident–Supervisor (Bipartite) Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
+title(main = "Figure 4.7: Resident–Supervisor Network Nodes' size adjusted based on Strenght", cex.main = 0.9)
 legend("bottomleft",
        c("Male", "Female"),
        pch = c(22, 21),           # 22 = filled square, 21 = filled circle
@@ -3760,6 +3781,7 @@ par(op)
 ```
 
 # **5) One mode networks from biparatite network:**
+
 ```{r echo=FALSE}
 types <- V(g_bi_und_all)$type
 R_names <- V(g_bi_und_all)$name[!types]
@@ -3779,7 +3801,8 @@ stopifnot(identical(rownames(B), R_names), identical(colnames(B), S_names))
 
 ## 2) Projections
 # Binary projection (counts of common alters)
-B_bin <- (B > 0)
+B <- as.matrix(B)
+B_bin <- as.matrix(B != 0) 
 WR_bin <- as.matrix(B_bin %*% t(B_bin)); diag(WR_bin) <- 0   # R×R
 WS_bin <- as.matrix(t(B_bin) %*% B_bin); diag(WS_bin) <- 0   # S×S
 
@@ -3849,15 +3872,19 @@ jacc_w <- if (sum(maxs) > 0) sum(mins) / sum(maxs) else NA_real_
 pear  <- suppressWarnings(cor(lt(ARw), lt(APw), use = "pairwise.complete.obs", method = "pearson"))
 spear <- suppressWarnings(cor(lt(ARw), lt(APw), use = "pairwise.complete.obs", method = "spearman"))
 
+# cmp_tbl <- tibble::tibble(
+#   Metric = c("Binary Jaccard (edge overlap)", "Weighted Jaccard", "Pearson r (weights)", "Spearman ρ (weights)"),
+#   Value  = c(jacc_bin, jacc_w, pear, spear)
+# )
 cmp_tbl <- tibble::tibble(
-  Metric = c("Binary Jaccard (edge overlap)", "Weighted Jaccard", "Pearson r (weights)", "Spearman ρ (weights)"),
-  Value  = c(jacc_bin, jacc_w, pear, spear)
+  Metric = c("Binary Jaccard (edge overlap)", "Weighted Jaccard"),
+  Value  = c(jacc_bin, jacc_w)
 )
 
 # --- Print nicely
 summ_tbl %>%
   kbl(
-    caption = "Resident projection vs Peer network: summary",
+    caption = "Table 5.1: Resident projection vs Peer network: summary",
     booktabs = TRUE,
     digits = 3,
     align = c("l","r","r","r","r","r"),
@@ -3867,7 +3894,7 @@ summ_tbl %>%
 
 cmp_tbl %>%
   kbl(
-    caption = "Resident projection vs Peer network: overlap and similarity",
+    caption = "Table 5.2: Resident projection vs Peer network: overlap and similarity",
     booktabs = TRUE,
     digits = 3,
     align = c("l","r"),
@@ -3875,6 +3902,7 @@ cmp_tbl %>%
   ) %>%
   kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE, fixed_thead = TRUE)
 ```
+
 
 ```{r echo=FALSE}
 idx <- match(V(g_R_w)$name, net.attr$id)
@@ -3884,7 +3912,7 @@ V(g_R_w)$Gender <- net.attr$Gender[idx]
 V(g_R_w)$shape <- net.attr$Shape[idx]
 
 
-set.seed(1)
+
 L <- layout_with_fr(g_R_w, niter = 2000, weights = NA)
 
 # edge widths by weight (visible, robust)
@@ -3937,7 +3965,6 @@ V(g_S_w)$Gender <- net.attr$Gender[idx]
 V(g_S_w)$shape <- net.attr$Shape[idx]
 
 
-set.seed(2)
 # L <- layout_with_graphopt(
 #   g_S_w,
 #   niter = 1000,          # more iterations for stability
@@ -3983,7 +4010,7 @@ legend("bottomleft",
 
 ```
 
-# **6) Compare Three peer networks**
+# **6)Comparison of Three Peer Networks**
 
 ```{r standard table, echo=FALSE}
 s_table <- function(df, caption) {
@@ -4049,11 +4076,13 @@ spear    <- pairwise_matrix(A_w, \(x,y) suppressWarnings(cor(x, y, use="pair", m
 
 s_table(bin_jacc, "Table 6.1: Peer networks: Binary Jaccard (edge overlap)")
 s_table(w_jacc,   "Table 6.2: Peer networks: Weighted Jaccard (edge-weight similarity)")
-s_table(pear,     "Table 6.3: Peer networks: Pearson correlation of weights")
-s_table(spear,    "Table 6.4: Peer networks: Spearman correlation of weights")
+# s_table(pear,     "Table 6.3: Peer networks: Pearson correlation of weights")
+# s_table(spear,    "Table 6.4: Peer networks: Spearman correlation of weights")
 
 ```
-```{r peer-qap, echo=FALSE, message=FALSE}
+
+
+```{r peer-qap, eval=FALSE}
 library(sna)
 ## 1) Align to same nodes and build UNDIRECTED weighted adjacencies
 Gs <- list(PS = g_peer_ps, P = g_peer_p, FK = g_peer_fk)
@@ -4083,7 +4112,7 @@ qap_cor_manual <- function(M1, M2, reps = 500, seed = 123) {
   x <- lt(M1); y <- lt(M2)
   r_obs <- suppressWarnings(cor(x, y, use = "pair"))
 
-  set.seed(seed)
+ 
   n <- nrow(M2)
   r_perm <- numeric(reps)
   for (k in seq_len(reps)) {
@@ -4105,13 +4134,13 @@ for (i in seq_len(n)) for (j in seq_len(n)) {
 }
 
 ## 4) Render tables
-s_table(QAP_r, "Table 6.5: Peer networks - QAP Pearson correlations (observed r)")
-s_table(QAP_p, "Table 6.6: Peer networks - QAP p-values (two-sided)")
+# s_table(QAP_r, "Table 6.5: Peer networks - QAP Pearson correlations (observed r)")
+# s_table(QAP_p, "Table 6.6: Peer networks - QAP p-values (two-sided)")
 
 ```
 
 
-# **7) Compare Three bipartite networks**
+# **7) Comparison of Three Bipartite Networks**
 ```{r bipartite-compare, echo=FALSE, message=FALSE}
 
 # ----- helpers -----
@@ -4165,8 +4194,8 @@ for (i in seq_along(keys)) for (j in seq_along(keys)) {
 
 s_table(bin_jacc, "Table 7.1: Bipartite networks - Binary Jaccard over R×S incidence")
 s_table(w_jacc,   "Table 7.2: Bipartite networks - Weighted Jaccard over R×S incidence")
-s_table(pear,     "Table 7.3: Bipartite networks - Pearson correlation of R×S weights")
-s_table(spear,    "Table 7.4: Bipartite networks - Spearman correlation of R×S weights")
+# s_table(pear,     "Table 7.3: Bipartite networks - Pearson correlation of R×S weights")
+# s_table(spear,    "Table 7.4: Bipartite networks - Spearman correlation of R×S weights")
 
 
 ```
